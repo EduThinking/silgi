@@ -244,6 +244,133 @@
     };
   }
 
-  const api = { DEF, prep, bodyH, analyzeJump, analyzeSitup, pivots, ang };
+  /* ───────── 공통: 설정 병합 ───────── */
+  DEF.sargent = { ref: { knee: [80, 110], armTO: [120, 180], ext: [160, 180], drift: [0, 20], landKnee: [70, 130] } };
+  DEF.flex = { holdSec: 2, kneeMin: 165, tipOffsetCm: 6, ref: { hipAngle: [0, 55], kneeAngle: [165, 180], sway: [0, 2] } };
+  DEF.run10 = { laps: 2, startMode: 'line', ref: { lean: [30, 60], turn: [0, 1.2], hipLow: [45, 75], finDrop: [-100, 8] } };
+  DEF.run20 = JSON.parse(JSON.stringify(DEF.run10));
+  DEF.shuttle = { startKmh: 8.5, missLimit: 2 };
+  const mk = (id, o) => Object.assign({}, DEF[id], o.cfg, { ref: Object.assign({}, DEF[id].ref, o.cfg && o.cfg.ref) });
+
+  /* ───────── 서전트 점프 ───────── */
+  const SARGENT_TIPS = {
+    'knee:high': JUMP_TIPS['knee:high'], 'knee:low': JUMP_TIPS['knee:low'], 'ext:low': JUMP_TIPS['ext:low'], 'landKnee:high': JUMP_TIPS['landKnee:high'],
+    'armTO:low': { p: '도약 순간 팔이 충분히 올라오지 않습니다.', fix: '발이 떨어질 때 팔이 머리 위로 뻗어 있어야 합니다. 팔을 뒤에서 위로 한 번에 던지세요.', ex: ['팔 스윙 점프 3×6', '메디신볼 오버헤드 수직 던지기 3×8'] },
+    'drift:high': { p: '제자리에서 벗어나 앞이나 뒤로 떨어집니다. 위로 쓸 힘이 옆으로 샙니다.', fix: '발 전체로 바닥을 수직으로 밀고, 뛴 자리에 그대로 착지하는 연습을 하세요.', ex: ['제자리 연속 점프(같은 자리 착지) 3×8', '박스 점프 3×5'] }
+  };
+  function analyzeSargent(frames, o) {
+    o = o || {}; const cfg = mk('sargent', o), S = prep(frames);
+    if (S.n < 12) return err('사람이 인식된 구간이 너무 짧습니다. 전신이 나오게 다시 촬영해 주세요.');
+    const H = bodyH(S), ppc = H / (o.heightCm || 170), T = S.t, P = S.p, n = S.n;
+    const lowY = P.map(f => Math.max(f[29][1], f[30][1], f[31][1], f[32][1])), base = quant(lowY, 0.8), h = lowY.map(y => base - y), thr = 0.04 * H;
+    const runs = []; let s = -1;
+    for (let i = 0; i <= n; i++) { const air = i < n && h[i] > thr; if (air && s < 0) s = i; if (!air && s >= 0) { runs.push({ s, e: i - 1 }); s = -1; } }
+    let main = null; runs.forEach(r => { const d = T[r.e] - T[r.s]; if (r.s > 1 && r.e < n - 2 && d >= 0.12 && d <= 1.3 && (!main || d > T[main.e] - T[main.s])) main = r; });
+    if (!main) return err('점프 구간을 찾지 못했습니다. 준비 자세부터 착지 후 1초까지 발이 화면에 다 나오게 찍어 주세요.');
+    const a = main.s - 1, b = main.e + 1, Tf = ((T[b] - T[a]) + (T[main.e] - T[main.s])) / 2, flightH = 122.6 * Tf * Tf;
+    const hipY = i => (P[i][23][1] + P[i][24][1]) / 2, hipX = i => (P[i][23][0] + P[i][24][0]) / 2;
+    const sd = nearSide(S, [L.HIP, L.KNEE, L.ANK, L.SH]), J = (i, key) => P[i][L[key][sd]];
+    const knee = i => ang(J(i, 'HIP'), J(i, 'KNEE'), J(i, 'ANK'));
+    const w0 = idxAt(S, T[a] - 1.5); let deep = w0; for (let i = w0; i <= a; i++) if (knee(i) < knee(deep)) deep = i;
+    const st0 = idxAt(S, T[deep] - 1.2), stand = quant(P.slice(st0, deep + 1).map((f, i) => hipY(st0 + i)), 0.1);
+    let top = main.s; for (let i = main.s; i <= main.e; i++) if (hipY(i) < hipY(top)) top = i;
+    const rise = (stand - hipY(top)) / ppc, drift = Math.abs(hipX(b) - hipX(a)) / ppc;
+    const dir = Math.sign(J(a, 'TOE')[0] - J(a, 'HEEL')[0]) || 1;
+    const sh = J(main.s, 'SH'), hp = J(main.s, 'HIP'), wr = J(main.s, 'WR'), tv = [hp[0] - sh[0], hp[1] - sh[1]], av = [wr[0] - sh[0], wr[1] - sh[1]];
+    let armTO = -deg(Math.atan2(tv[0] * av[1] - tv[1] * av[0], tv[0] * av[0] + tv[1] * av[1])) * dir; if (armTO < -90) armTO += 360;
+    const ext = Math.max(...[a - 1, a, main.s].map(knee)), le = idxAt(S, T[b] + 0.5); let landKnee = 180; for (let i = b; i <= le; i++) landKnee = Math.min(landKnee, knee(i));
+    const fouls = [], footX = i => (P[i][29][0] + P[i][30][0]) / 2;
+    if (Math.abs(footX(w0) - footX(a)) > 0.08 * H) fouls.push({ code: 'step', sev: 'warn', label: '도움닫기(스텝) 의심', detail: '점프 전 1.5초 안에 발 위치가 바뀌었습니다.' });
+    if (drift > 30) fouls.push({ code: 'drift', sev: 'warn', label: '제자리 이탈', detail: `뛴 자리에서 약 ${round(drift)}cm 벗어나 착지했습니다.` });
+    const R = cfg.ref, metrics = [
+      metric('knee', '반동 깊이 (가장 깊이 앉았을 때 무릎 각도)', knee(deep), '°', R.knee), metric('armTO', '도약 순간 팔 높이 (몸통 기준)', armTO, '°', R.armTO),
+      metric('ext', '도약 순간 무릎 펴짐', ext, '°', R.ext), metric('drift', '착지 위치 이탈', drift, 'cm', R.drift), metric('landKnee', '착지 무릎 굽힘 (최소 각도)', landKnee, '°', R.landKnee),
+      metric('flightH', '체공 시간으로 계산한 높이', flightH, 'cm', null, 1), metric('flight', '체공 시간', Tf, '초', null, 2)];
+    return { ok: true, event: 'sargent', record: { value: round(rise), unit: 'cm', valid: true }, fouls, metrics, tips: tipsFor(metrics, SARGENT_TIPS),
+      notes: ['서 있을 때보다 엉덩이가 올라간 높이로 쟀습니다. 손끝 도달 높이 차와 같은 기준입니다.', '키 입력값으로 축척을 잡습니다. 키가 정확해야 합니다.'],
+      events: [{ t: T[deep], label: '최대 반동' }, { t: T[main.s], label: '도약' }, { t: T[top], label: '최고점' }, { t: T[b], label: '착지' }], anchor: T[main.s] };
+  }
+
+  /* ───────── 유연성 (좌전굴) ───────── */
+  function analyzeFlex(frames, o) {
+    o = o || {}; const cfg = mk('flex', o), S = prep(frames);
+    if (S.n < 10) return err('사람이 인식된 구간이 너무 짧습니다. 옆에서 앉은 자세 전체가 나오게 찍어 주세요.');
+    const H = bodyH(S), ppc = H / (o.heightCm || 170), T = S.t, P = S.p, n = S.n, sd = nearSide(S, [L.HIP, L.KNEE, L.ANK]);
+    const J = (i, key) => P[i][L[key][sd]], dir = Math.sign(median(P.map(f => f[L.ANK[sd]][0] - f[L.HIP[sd]][0]))) || 1;
+    const sole = median(P.map(f => f[L.HEEL[sd]][0] * dir));
+    const reach = smooth(P.map(f => { const ix = [19, 20].filter(i => f[i][2] > 0.3).map(i => f[i][0] * dir), tip = ix.length ? Math.max(...ix) : Math.max(f[15][0] * dir, f[16][0] * dir); return (tip - sole) / ppc + cfg.tipOffsetCm; }));
+    let best = -1e9, bi = 0, bj = 0, held = true;
+    for (let i = 0; i < n; i++) { const j = idxAt(S, T[i] + cfg.holdSec); if (T[j] - T[i] < cfg.holdSec - 0.15) break; const m = Math.min(...reach.slice(i, j + 1)); if (m >= best) { best = m; bi = i; bj = j; } }
+    const peak = Math.max(...reach);
+    if (best === -1e9) { held = false; best = peak; bi = bj = reach.indexOf(peak); }
+    const win = []; for (let i = bi; i <= bj; i++) win.push(i);
+    const kneeMin = Math.min(...win.map(i => ang(J(i, 'HIP'), J(i, 'KNEE'), J(i, 'ANK')))), hipAngle = median(win.map(i => ang(J(i, 'SH'), J(i, 'HIP'), J(i, 'KNEE'))));
+    const sway = quant(win.map(i => reach[i]), 0.9) - quant(win.map(i => reach[i]), 0.1), fouls = [];
+    if (kneeMin < cfg.kneeMin) fouls.push({ code: 'knee', sev: 'bad', label: '무릎 굽힘', detail: `측정 중 무릎 각도가 ${round(kneeMin)}°까지 굽었습니다. (기준 ${cfg.kneeMin}° 이상)` });
+    if (!held) fouls.push({ code: 'hold', sev: 'warn', label: '유지 시간 부족', detail: `${cfg.holdSec}초 동안 멈춘 구간이 없어 순간 최대값으로 표시했습니다.` });
+    else if (peak - best > 4) fouls.push({ code: 'bounce', sev: 'warn', label: '반동 의심', detail: `순간 최대 ${round(peak)}cm까지 갔다가 돌아왔습니다. 유지한 값만 인정합니다.` });
+    const R = cfg.ref, metrics = [metric('hipAngle', '상체 접힘 각도 (작을수록 깊이 접힘)', hipAngle, '°', R.hipAngle), metric('kneeAngle', '무릎 펴짐 (최소 각도)', kneeMin, '°', R.kneeAngle), metric('sway', '유지 중 흔들림', sway, 'cm', R.sway, 1), metric('peak', '순간 최대 도달', peak, 'cm', null, 1)];
+    const tips = [];
+    if (hipAngle > R.hipAngle[1]) tips.push({ p: '골반이 앞으로 넘어가지 않아 허리만 굽힙니다.', fix: '등을 둥글게 말기 전에 배꼽을 허벅지에 붙인다는 느낌으로 골반부터 숙이세요. 숨을 내쉬며 천천히 내려갑니다.', ex: ['햄스트링 스트레칭(한 다리씩) 3×30초', '시티드 굿모닝 3×10', '고관절 90/90 스트레칭 3×30초', '폼롤러 종아리·햄스트링 각 1분'] });
+    if (kneeMin < cfg.kneeMin) tips.push({ p: '무릎이 굽으면 무효입니다.', fix: '허벅지 앞쪽에 힘을 줘 무릎을 바닥으로 누른 채 숙이세요.', ex: ['앉아서 무릎 누르고 발끝 당기기 3×20초', '종아리 스트레칭 3×30초'] });
+    if (held && peak - best > 4) tips.push({ p: '반동으로 밀었다가 돌아옵니다.', fix: '끝 지점에서 2초를 세고 손을 뗍니다. 반동 없이 천천히 미는 연습을 하세요.', ex: ['PNF 스트레칭(6초 버티고 더 숙이기) ×4'] });
+    return { ok: true, event: 'flex', record: { value: round(best), unit: 'cm', valid: !fouls.some(f => f.sev === 'bad') }, fouls, metrics, tips,
+      notes: ['발바닥 면을 0cm로 보고 손끝이 넘어간 거리입니다.', `손가락 관절이 잡혀서 손끝까지 ${cfg.tipOffsetCm}cm를 더했습니다. 설정에서 바꿀 수 있습니다.`],
+      events: [{ t: T[bi], label: '유지 시작' }, { t: T[bj], label: '유지 끝' }], anchor: T[bi] };
+  }
+
+  /* ───────── 10m·20m 왕복달리기 ───────── */
+  const RUN_TIPS = {
+    'lean:low': { p: '출발하자마자 상체가 섭니다. 가속 구간에서 힘이 위로 빠집니다.', fix: '첫 3~4걸음은 머리부터 발목까지 일직선으로 앞으로 기울인 채 바닥을 뒤로 밀어내세요.', ex: ['월 드릴(벽 밀고 무릎 올리기) 3×10', '푸시업 스타트 5회', '슬레드·밴드 저항 달리기 5×10m'] },
+    'lean:high': { p: '출발 때 상체가 너무 숙여져 첫걸음이 짧아집니다.', fix: '시선을 3m 앞 바닥에 두고, 넘어지지 않을 만큼만 기울이세요.', ex: ['폴링 스타트 5회', '3점 스타트 반복 5×5m'] },
+    'turn:high': { p: '턴에 시간이 오래 걸립니다.', fix: '선 두 걸음 전부터 보폭을 줄여 몸을 낮추고, 마지막 발을 옆으로 디뎌 한 번에 방향을 바꾸세요.', ex: ['5-10-5 프로 어질리티 6회', '감속 스텝 드릴(3보 감속 후 정지) 3×6', '래터럴 바운드 3×8'] },
+    'hipLow:high': { p: '턴할 때 무게중심이 높습니다. 미끄러지거나 크게 돌게 됩니다.', fix: '선을 밟을 때 무릎을 깊이 굽혀 엉덩이를 낮추고, 손이 바닥에 닿을 만큼 숙이세요.', ex: ['사이드 런지 3×10', '스케이터 점프 3×10', '낮은 자세 셔플 3×10m'] },
+    'finDrop:high': { p: '도착 전에 속도를 줄입니다.', fix: '선을 지나 3m 뒤를 결승선이라고 생각하고 그대로 통과하세요.', ex: ['선 통과 후 5m 더 달리기 반복 6회'] }
+  };
+  function analyzeRun(frames, o) {
+    o = o || {}; const id = o.dist === 20 ? 'run20' : 'run10', cfg = mk(id, o), D = (o.dist || 10) * 100;
+    const F = frames.filter(f => f && f.p);
+    if (F.length < 10) return err('사람이 인식된 구간이 너무 짧습니다. 출발선 주변에서 전신이 나오게 찍어 주세요.');
+    if (!isFinite(o.lineX)) return err('출발선 위치를 먼저 찍어 주세요.');
+    const H = bodyH({ p: F.map(f => f.p) }), far = isFinite(o.farX), ppc = far ? Math.abs(o.farX - o.lineX) / D : H / (o.heightCm || 170);
+    const T = F.map(f => f.t), hx = F.map(f => (f.p[23][0] + f.p[24][0]) / 2), n = F.length, x0 = median(hx.slice(0, 5));
+    let d = far ? Math.sign(o.farX - o.lineX) : -Math.sign(x0 - o.lineX); if (!d) d = Math.sign(hx[Math.min(n - 1, 15)] - x0) || 1;
+    const u = hx.map(x => (x - o.lineX) * d / ppc), dt = median(T.slice(1).map((t, i) => t - T[i]));
+    const cross = (i, c) => T[i - 1] + (c - u[i - 1]) / ((u[i] - u[i - 1]) || 1e-9) * (T[i] - T[i - 1]), near = i => T[i] - T[i - 1] < 0.3;
+    let si = -1; for (let i = 1; i < n; i++) if (near(i) && u[i - 1] < 0 && u[i] >= 0) { si = i; break; }
+    if (si < 0) return err('출발선을 넘는 장면을 찾지 못했습니다. 출발 전 자세부터 찍고, 출발선 위치를 다시 찍어 주세요.');
+    const tLine = cross(si, 0); let mi = 0; for (let i = 0; i < si; i++) if (Math.abs(hx[i] - x0) > 0.08 * H) { mi = i; break; }
+    const tMove = mi ? T[mi - 1] : T[Math.max(0, si - 1)], tStart = cfg.startMode === 'move' ? tMove : tLine;
+    const us = u.slice(si), delta = Math.min(200, 0.6 * Math.max(...us)), his = pivots(us, delta).filter(q => q.type === 'hi').map(q => q.i + si).slice(0, cfg.laps);
+    if (!his.length) return err('반대편으로 갔다가 돌아오는 장면을 찾지 못했습니다. 도착할 때까지 끊지 않고 찍어 주세요.');
+    const fouls = [];
+    if (his.length < cfg.laps) fouls.push({ code: 'laps', sev: 'warn', label: `왕복 ${cfg.laps}회 중 ${his.length}회만 확인`, detail: '왕복 횟수 설정이나 촬영 구간을 확인하세요.' });
+    const last = his[his.length - 1]; let fi = -1; for (let i = last + 1; i < n; i++) if (near(i) && u[i - 1] >= 0 && u[i] < 0) { fi = i; break; }
+    if (fi < 0) return err('출발선으로 돌아와 통과하는 장면을 찾지 못했습니다. 선을 지나칠 때까지 찍어 주세요.');
+    const tFin = cross(fi, 0), fu = (i, fn) => fn(...[29, 30, 31, 32].map(k => (F[i].p[k][0] - o.lineX) * d / ppc));
+    const sdn = nearSide({ p: F.map(f => f.p) }, [L.HIP, L.KNEE, L.ANK]), leg = median(F.map(f => dist(f.p[L.HIP[sdn]], f.p[L.KNEE[sdn]]) + dist(f.p[L.KNEE[sdn]], f.p[L.ANK[sdn]])));
+    const hipPct = i => (Math.max(...[29, 30, 31, 32].map(k => F[i].p[k][1])) - (F[i].p[23][1] + F[i].p[24][1]) / 2) / leg * 100;
+    const turnDur = [], hipLows = [], marks = [tStart], events = [{ t: tStart, label: '출발' }];
+    const zone = (c, inside) => { let a = c, b = c; while (a > 0 && near(a) && inside(u[a - 1])) a--; while (b < n - 1 && near(b + 1) && inside(u[b + 1])) b++; turnDur.push(T[b] - T[a]); let m = 200; for (let i = a; i <= b; i++) m = Math.min(m, hipPct(i)); hipLows.push(m); };
+    his.forEach((hi, k) => {
+      if (far) { let fm = -1e9; for (let i = Math.max(0, hi - 3); i <= Math.min(n - 1, hi + 3); i++) fm = Math.max(fm, fu(i, Math.max)); if (fm < D - 5) fouls.push({ code: 'far' + k, sev: 'warn', label: `${k + 1}번째 반대편 턴에서 선에 못 미침`, detail: `선까지 약 ${round(D - fm)}cm 남았습니다.` }); zone(hi, v => v > D - 150); events.push({ t: T[hi], label: '턴' }); }
+      if (k < his.length - 1) { let li = hi; for (let i = hi; i <= his[k + 1]; i++) if (u[i] < u[li]) li = i; let fm = 1e9; for (let i = Math.max(0, li - 3); i <= Math.min(n - 1, li + 3); i++) fm = Math.min(fm, fu(i, Math.min)); if (fm > 5) fouls.push({ code: 'near' + k, sev: 'warn', label: `${k + 1}번째 출발선 턴에서 선에 못 미침`, detail: `선까지 약 ${round(fm)}cm 남았습니다.` }); zone(li, v => v < 150); marks.push(T[li]); events.push({ t: T[li], label: '턴' }); }
+    });
+    marks.push(tFin); events.push({ t: tFin, label: '도착' });
+    const leanF = F.filter(f => f.t >= tLine + 0.05 && f.t <= tLine + 0.6).map(f => { const sh = mid(f.p[11], f.p[12]), hp = mid(f.p[23], f.p[24]); return deg(Math.atan2((sh[0] - hp[0]) * d, hp[1] - sh[1])); });
+    const R = cfg.ref, metrics = [];
+    if (leanF.length) metrics.push(metric('lean', '출발 직후 상체 기울기 (수직 기준)', mean(leanF), '°', R.lean));
+    if (turnDur.length) { metrics.push(metric('turn', '턴 소요 시간 (선 앞 1.5m 들어와서 나갈 때까지)', mean(turnDur), '초', R.turn, 2)); metrics.push(metric('hipLow', '턴할 때 엉덩이 높이 (다리 길이 대비)', mean(hipLows), '%', R.hipLow)); }
+    const back = c => { for (let i = fi; i > last; i--) if (near(i) && u[i - 1] >= c && u[i] < c) return cross(i, c); return null; }, t150 = back(150), t300 = back(300);
+    if (t150 != null && t300 != null && t150 > t300) metrics.push(metric('finDrop', '도착 직전 감속 (마지막 1.5m 속도 저하)', (1 - (t150 - t300) / (tFin - t150)) * 100, '%', R.finDrop));
+    for (let i = si; i < n; i++) if (near(i) && u[i - 1] < 200 && u[i] >= 200) { metrics.push(metric('first2m', '출발선에서 첫 2m까지', cross(i, 200) - tLine, '초', null, 2)); break; }
+    metrics.push(metric('react', '첫 움직임부터 출발선 통과까지', Math.max(0, tLine - tMove), '초', null, 2));
+    marks.slice(1).forEach((t, k) => metrics.push(metric('split' + k, `${k + 1}번째 왕복`, t - marks[k], '초', null, 2)));
+    return { ok: true, event: id, record: { value: round(tFin - tStart, 2), unit: '초', valid: !fouls.some(f => f.sev === 'bad') }, fouls, metrics, tips: tipsFor(metrics, RUN_TIPS), events, anchor: tStart,
+      notes: [cfg.startMode === 'move' ? '첫 움직임부터 출발선 복귀까지 잰 시간입니다.' : '몸통이 출발선을 넘은 순간부터 다시 넘어 돌아온 순간까지입니다.', `프레임 간격 ${round(dt * 1000)}ms, 오차 약 ±${round(dt / 2, 2)}초`, far ? '양쪽 선 사이 거리로 축척을 잡았습니다.' : '키로 축척을 잡아 턴 거리 판정은 어림값입니다.'],
+      vlines: [{ x: o.lineX, label: '출발선' }].concat(far ? [{ x: o.farX, label: '반대편' }] : []) };
+  }
+
+  const api = { DEF, prep, bodyH, analyzeJump, analyzeSitup, analyzeSargent, analyzeFlex, analyzeRun, pivots, ang };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Analysis = api;
 })(typeof self !== 'undefined' ? self : this);
