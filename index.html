@@ -89,6 +89,8 @@ input:focus,select:focus{border-color:var(--accent);outline:none;box-shadow:0 0 
 .frame.pick canvas{cursor:crosshair;touch-action:none}
 button.nudge{width:40px;height:36px;padding:0}
 .fig{width:100%;max-width:440px;height:auto;display:block}.fig text{font:600 11px var(--body);fill:var(--ink2)}
+.shot{grid-column:1/-1}.shot canvas{width:100%;max-width:380px;border-radius:12px;display:block;background:#0E1320}
+.chg{display:flex;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1.5px solid var(--line);font-size:.88rem;flex-wrap:wrap}.chg:last-child{border-bottom:0}.chg b{flex:1 1 150px}.chg .n{font-variant-numeric:tabular-nums;font-weight:700}
 .tip .cmp{color:var(--ink);font-size:.86rem;background:#fff;border-radius:10px;padding:6px 10px}
 .seg button:disabled{opacity:.4}
 .ctrl{display:flex;gap:6px;align-items:center;flex-wrap:wrap} .ctrl button{padding:7px 12px;font-size:.85rem}
@@ -295,9 +297,10 @@ const store = {
 };
 const app = { ev: null, me: null, ref: null, cfg: store.get('pe.cfg', {}), name: store.get('pe.name', '') };
 const cfgInit = new Set();
-const cfgOf = (id) => cfgInit.has(id) ? app.cfg[id] : (cfgInit.add(id), app.cfg[id] = Object.assign({ calibMode: 'line', markCm: 200, heightCm: 170, refHeightCm: 175, fps: null }, JSON.parse(JSON.stringify(Analysis.DEF[id])), app.cfg[id]));
+const cfgOf = (id) => cfgInit.has(id) ? app.cfg[id] : (cfgInit.add(id), app.cfg[id] = Object.assign({ calibMode: 'line', markCm: 200, heightCm: 170, refHeightCm: 175, fps: null }, JSON.parse(JSON.stringify(Analysis.DEF[id])), app.cfg[id], Analysis.DEF[id].ref ? { ref: JSON.parse(JSON.stringify(Analysis.DEF[id].ref)) } : {}));
 const needPts = () => { const c = cfgOf(app.ev.id); return c.calibMode !== 'line' ? [0, 0] : app.ev.id === 'jump' ? [2, 2] : app.ev.dist ? [1, 2] : [0, 0]; };
 const saveCfg = () => store.set('pe.cfg', app.cfg);
+if (store.get('pe.cfgv', 0) < 2) { if (app.cfg.jump) app.cfg.jump.calibMode = 'height'; store.set('pe.cfgv', 2); saveCfg(); }
 
 /* ── 포즈 엔진 ── */
 const engine = {
@@ -363,11 +366,13 @@ class Player {
       this.v.onloadedmetadata = async () => {
         this.v.onloadedmetadata = null;
         if (!isFinite(this.v.duration)) { await new Promise((r) => { const d = () => { if (isFinite(this.v.duration)) { this.v.removeEventListener('durationchange', d); r(); } }; this.v.addEventListener('durationchange', d); this.v.currentTime = 1e7; setTimeout(r, 3000); }); this.v.currentTime = 0; }
+        // 안드로이드는 한 번 재생하기 전까지 첫 화면 대신 재생 아이콘만 보여 주고, 일부 기기는 그때까지 영상 크기도 알려 주지 않는다.
+        try { await this.v.play(); this.v.pause(); } catch (e) { }
+        for (let i = 0; i < 30 && !this.v.videoWidth; i++) await new Promise(r => setTimeout(r, 100));
+        if (!this.v.videoWidth) return rej(new Error('이 브라우저가 이 영상 형식을 열지 못합니다. 폰 카메라 설정에서 "고효율(HEVC)"을 끄고 다시 찍거나, 다른 브라우저(크롬)로 열어 주세요.'));
         this.W = this.v.videoWidth; this.H = this.v.videoHeight; this.dur = isFinite(this.v.duration) ? this.v.duration : (durHint || 1); this.trim = [0, this.dur];
         const sc = Math.min(1, 1280 / this.W); this.sc = sc; this.c.width = Math.round(this.W * sc); this.c.height = Math.round(this.H * sc);
         this.frameEl.style.maxWidth = Math.round(560 * this.W / this.H) + 'px'; this.range.max = this.dur; this.setMarkers([]);
-        // 안드로이드는 한 번 재생하기 전까지 첫 화면 대신 재생 아이콘만 보여 준다. 잠깐 재생했다 멈춰 첫 장면을 띄운다.
-        try { await this.v.play(); this.v.pause(); } catch (e) { }
         await seekTo(this.v, Math.min(0.05, this.dur / 2)); this.draw(); res();
       };
       this.v.onerror = () => rej(new Error('이 영상을 열 수 없습니다. MP4(H.264)나 MOV로 다시 시도해 주세요.'));
@@ -517,6 +522,37 @@ function drawGhost(pl, g, fr, t) {
   BONES.forEach(([a, b]) => { if (!q[a][2] || !q[b][2]) return; const A = X(q[a]), B = X(q[b]); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke(); });
 }
 
+/* ── 지표마다 그 순간의 장면과 관절선 ── */
+function shotCanvas(pl, m) {
+  const fr = pl.frameAt(m.at), cv = document.createElement('canvas'), pts = fr && fr.p ? fr.p.filter((q, i) => i > 10 && q[2] >= 0.3) : [];
+  let x0 = 0, y0 = 0, x1 = pl.W, y1 = pl.H;
+  if (pts.length > 4) { const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]), w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys), mg = Math.max(w, h) * 0.3 + 30, need = Math.max(w + 2 * mg, (h + 2 * mg) * 0.9), cx = (Math.max(...xs) + Math.min(...xs)) / 2;
+    x0 = cx - need / 2; x1 = cx + need / 2; y0 = Math.min(...ys) - mg * 0.9; y1 = Math.max(...ys) + mg * 0.6; }
+  x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(pl.W, x1); y1 = Math.min(pl.H, y1);
+  const sw = x1 - x0, sh = y1 - y0, k = 560 / sw; cv.width = 560; cv.height = Math.round(sh * k); const g = cv.getContext('2d'), X = (q) => [(q[0] - x0) * k, (q[1] - y0) * k];
+  g.fillStyle = '#0E1320'; g.fillRect(0, 0, cv.width, cv.height); if (!(pl.v instanceof FakeVideo)) { try { g.drawImage(pl.v, x0, y0, sw, sh, 0, 0, cv.width, cv.height); } catch (e) { } }
+  if (fr && fr.p) {
+    g.lineCap = 'round'; g.lineWidth = 3; g.strokeStyle = 'rgba(255,255,255,.85)';
+    BONES.forEach(([a, b]) => { if (fr.p[a][2] < 0.3 || fr.p[b][2] < 0.3) return; const A = X(fr.p[a]), B = X(fr.p[b]); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke(); });
+    if (m.j) { const [A, B, C] = m.j.map(i => X(fr.p[i])); g.strokeStyle = '#FFD164'; g.lineWidth = 6; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.lineTo(C[0], C[1]); g.stroke();
+      const a1 = Math.atan2(A[1] - B[1], A[0] - B[0]), a2 = Math.atan2(C[1] - B[1], C[0] - B[0]); let d = a2 - a1; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      g.lineWidth = 3; g.beginPath(); g.arc(B[0], B[1], 34, a1, a1 + d, d < 0); g.stroke(); g.fillStyle = '#FFD164'; g.beginPath(); g.arc(B[0], B[1], 6, 0, 7); g.fill(); }
+  }
+  const txt = `${m.value}${m.unit}`; g.font = '700 30px sans-serif'; const tw = g.measureText(txt).width; g.fillStyle = 'rgba(14,19,32,.8)'; g.fillRect(10, 10, tw + 20, 44); g.fillStyle = '#FFD164'; g.textBaseline = 'middle'; g.fillText(txt, 20, 33);
+  return cv;
+}
+async function fillShots(pl, host) {
+  if (!pl || !pl.result || !pl.result.ok || !pl.v) return; const tok = pl._shotTok = (pl._shotTok || 0) + 1; pl._shots = pl._shots || {};
+  await new Promise(r => setTimeout(r, 400)); if (pl._shotTok !== tok) return;
+  const was = pl.v.currentTime; let moved = false;
+  for (const m of pl.result.metrics) {
+    if (m.at == null) continue; const box = host.querySelector(`[data-shot="${m.key}"]`); if (!box) continue; const id = `${m.key}@${m.at}@${m.value}`;
+    if (!pl._shots[id]) { if (!pl.v.paused) return; moved = true; await seekTo(pl.v, Math.min(pl.dur - 0.01, Math.max(0, m.at))); if (pl._shotTok !== tok || !box.isConnected) return; pl._shots[id] = shotCanvas(pl, m); }
+    box.replaceChildren(pl._shots[id]);
+  }
+  if (moved && pl._shotTok === tok) pl.v.currentTime = was;
+}
+
 /* ── 설정 패널 ── */
 function numField(id, label, key, step, sfx) { const c = cfgOf(app.ev.id); return `<label for="${id}">${label}<span class="row"><input type="number" id="${id}" data-k="${key}" step="${step}" value="${c[key]}"> ${sfx || ''}</span></label>`; }
 function renderSetup() {
@@ -585,6 +621,18 @@ function renderResults() {
     <div class="row ${app.viewing ? 'hidden' : ''}"><button class="primary" id="btnSave">이 기록 저장</button><span class="small muted" id="saveMsg"></span></div>
     <div class="row ${app.viewing || !cloud.grp ? 'hidden' : ''}"><button id="btnShare" style="color:var(--ink)">소속에 공유</button><label class="row small" for="shVid" style="gap:6px"><input type="checkbox" id="shVid"> 영상도 함께 올리기</label><span class="small" id="shareMsg"></span></div>
     ${app.viewing ? `<p class="small muted">${esc(app.viewing)}</p>` : ''}</div>`;
+  const pv = !app.viewing && (store.get('pe.last', {})[app.ev.id] || []).filter(x => x.id !== app.me._savedId)[0];
+  if (pv) {
+    const gap = (v, ref) => v < ref[0] ? ref[0] - v : v > ref[1] ? v - ref[1] : 0, rd = (v) => Math.round(v * 100) / 100, dv = rd(r.record.value - pv.value), up = app.ev.lower ? dv < 0 : dv > 0;
+    const rows = r.metrics.map(m => { const o = pv.metrics.find(x => x.key === m.key); if (!o) return null; const d = rd(m.value - o.value); if (!m.ref) return { m, o, d, st: 'info', why: '' };
+      const g0 = gap(o.value, m.ref), g1 = gap(m.value, m.ref); return g1 < g0 ? { m, o, d, st: 'good', why: g1 === 0 ? '권장 범위 안으로 들어왔어요' : '권장 범위에 가까워졌어요' } : g1 > g0 ? { m, o, d, st: 'bad', why: g0 === 0 ? '권장 범위를 벗어났어요' : '권장 범위에서 더 멀어졌어요' } : { m, o, d, st: 'same', why: g1 === 0 ? '권장 범위 유지' : '그대로' }; }).filter(Boolean);
+    const line = (x) => `<div class="chg"><b>${esc(x.m.label.replace(/ \(.*/, ''))}</b><span class="n">${x.o.value} → ${x.m.value}${x.m.unit}</span><span class="muted">${x.why}</span></div>`, grp = (st) => rows.filter(x => x.st === st);
+    const sec = (t, st, cls) => grp(st).length ? `<h3 style="color:var(--${cls})">${t} ${grp(st).length}가지</h3><div>${grp(st).map(line).join('')}</div>` : '';
+    h += `<div class="card"><div class="row between"><h2>지난 측정과 달라진 점</h2><span class="pill ${dv === 0 ? 'info' : up ? 'good' : 'bad'}">${dv === 0 ? '기록 같음' : up ? '기록 좋아짐' : '기록 나빠짐'}</span></div>
+      <p class="small">${day(pv)} 저장한 기록 <b>${pv.value}${pv.unit}</b> → 이번 <b>${fv(r.record.value)}${r.record.unit}</b> (${dv > 0 ? '+' : ''}${dv}${r.record.unit})</p>
+      ${sec('좋아진 점', 'good', 'good')}${sec('나빠진 점', 'bad', 'bad')}${sec('그대로인 점', 'same', 'ink2')}${sec('참고 수치', 'info', 'ink2')}
+      <p class="small muted">"이 기록 저장"을 누른 측정끼리 비교합니다. 촬영 위치가 달라지면 각도 수치도 조금 달라질 수 있어요.</p></div>`;
+  }
   if (isS) {
     const mx = Math.max(1, ...r.buckets.map(b => b.valid));
     h += `<div class="card"><h2>회차별 판정</h2><p class="small muted">번호를 누르면 그 순간으로 이동합니다. ×는 무효입니다.</p>
@@ -593,7 +641,7 @@ function renderResults() {
   }
   h += `<div class="card"><div class="row between"><h2>자세 지표</h2><div class="legend"><span><i style="background:var(--ink)"></i>나</span>${M ? '<span><i style="background:var(--accent)"></i>기준 모델</span>' : ''}<span><i style="background:#9FE0BC;width:14px"></i>권장 범위</span></div></div><div>
     ${r.metrics.map(m => `<div class="metric"><div><b>${esc(m.label)}</b></div><div class="val">${m.value}<span> ${m.unit}</span></div>
-      <div class="sub"><span class="pill ${m.verdict === 'good' ? 'good' : m.verdict === 'info' ? 'info' : 'warn'}">${VTXT[m.verdict]}</span>${gauge(m, rmap[m.key])}${m.ref ? `<span>권장 ${m.ref[0]}~${m.ref[1]}${m.unit}</span>` : ''}${rmap[m.key] != null ? `<span>기준 모델 ${rmap[m.key]}${m.unit}</span>` : ''}</div></div>`).join('')}
+      ${m.at != null ? `<div class="shot" data-shot="${m.key}"></div>` : ''}<div class="sub"><span class="pill ${m.verdict === 'good' ? 'good' : m.verdict === 'info' ? 'info' : 'warn'}">${VTXT[m.verdict]}</span>${gauge(m, rmap[m.key])}${m.ref ? `<span>권장 ${m.ref[0]}~${m.ref[1]}${m.unit}</span>` : ''}${rmap[m.key] != null ? `<span>기준 모델 ${rmap[m.key]}${m.unit}</span>` : ''}</div></div>`).join('')}
     </div><p class="small muted">권장 범위는 일반적인 지도 기준입니다. 체형과 영상 각도에 따라 5~10° 차이가 날 수 있으니 같은 조건으로 찍은 내 기록끼리 비교하는 것이 가장 믿을 만합니다.</p></div>`;
   const mOf = (k) => r.metrics.find(m => m.key === k), sev = (m) => !m || !m.ref || m.verdict === 'good' || m.verdict === 'info' ? 0 : (m.verdict === 'low' ? m.ref[0] - m.value : m.value - m.ref[1]) / ((m.ref[1] - m.ref[0]) || 1);
   const tips = r.tips.slice().sort((a, b) => sev(mOf(b.key)) - sev(mOf(a.key))), goods = r.metrics.filter(m => m.verdict === 'good').slice(0, 3).map(m => m.label.replace(/ \(.*/, ''));
@@ -613,7 +661,7 @@ function renderResults() {
   host.innerHTML = h;
   if (app.ref) { $('#refPlayer').replaceWith(app.ref.host); app.ref.host.id = 'refPlayer'; }
   host.querySelectorAll('.reps button').forEach(b => b.onclick = () => { app.me.seek(+b.dataset.t); $('#playerCard').scrollIntoView({ block: 'nearest' }); });
-  $('#btnSave').onclick = () => saveRecord(r); $('#btnShare').onclick = shareNow;
+  $('#btnSave').onclick = () => saveRecord(r); $('#btnShare').onclick = shareNow; fillShots(app.me, host);
   const gh = $('#ghOn'); if (gh) gh.onchange = () => { app.ghostOn = gh.checked; renderResults(); if (gh.checked) $('#playerCard').scrollIntoView({ block: 'nearest' }); };
   host.querySelectorAll('[data-gm]').forEach(b => b.onclick = () => { app.ghostMode = b.dataset.gm; renderResults(); });
   $('#mdSave').onclick = () => { models()[app.ev.id] = packModel(app.me, app.name || '기준 모델'); app.model = null; saveCfg(); renderResults(); $('#mdMsg').textContent = cloud.admin ? '저장했습니다. 관리 탭에서 "소속 전체에 적용"을 누르면 수험생들도 이 모델과 비교합니다.' : '이 기기에 저장했습니다.'; };
@@ -817,7 +865,8 @@ function shMiss() {
 function shEnd(why) {
   const n = sh.log.filter(x => !x).length; let li = -1; sh.log.forEach((x, i) => { if (!x) li = i; }); const seg = sh.plan[li];
   shAbort(); beep(440, 600); $('#shState').textContent = why; $('#shProg').value = 0;
-  $('#shResult').innerHTML = `<button class="primary" id="shSave">${n}회 기록 저장</button><span class="small muted" id="shMsg">${seg ? `마지막 성공 레벨 ${seg.lv}-${seg.k}` : '성공한 구간이 없습니다'}</span>`;
+  const shPrev = (store.get('pe.last', {}).shuttle || [])[0];
+  $('#shResult').innerHTML = `<button class="primary" id="shSave">${n}회 기록 저장</button><span class="small muted" id="shMsg">${seg ? `마지막 성공 레벨 ${seg.lv}-${seg.k}` : '성공한 구간이 없습니다'}${shPrev ? ` · 지난 기록 ${shPrev.value}회 → 이번 ${n}회 (${n - shPrev.value >= 0 ? '+' : ''}${n - shPrev.value})` : ''}</span>`;
   $('#shSave').onclick = () => saveRecord({ record: { value: n, unit: '회' }, fouls: [], noteText: seg ? `레벨 ${seg.lv}-${seg.k}` : '', msgEl: $('#shMsg') });
 }
 attachPick(shCam, $('#shC')); $('#shCamBtn').onclick = shCamOpen;
@@ -829,7 +878,9 @@ $('#shLim').onchange = (e) => { cfgOf('shuttle').missLimit = Math.max(1, +e.targ
 const evName = (id) => (EVENTS.find(e => e.id === id) || {}).name || id;
 function saveRecord(r) {
   const list = store.get('pe.history', []);
-  list.unshift({ id: Date.now(), ev: app.ev.id, name: app.name, at: new Date().toISOString(), value: r.record.value, unit: r.record.unit, ok: !r.fouls.some(f => f.sev === 'bad'), note: r.noteText || r.fouls.map(f => f.label).join(', '), info: !!r.noteText });
+  const rid = Date.now(), lastAll = store.get('pe.last', {}); (lastAll[app.ev.id] = lastAll[app.ev.id] || []).unshift({ id: rid, at: new Date().toISOString(), value: r.record.value, unit: r.record.unit, metrics: (r.metrics || []).map(m => ({ key: m.key, label: m.label, value: m.value, unit: m.unit })) });
+  lastAll[app.ev.id] = lastAll[app.ev.id].slice(0, 6); store.set('pe.last', lastAll); if (app.me) app.me._savedId = rid;
+  list.unshift({ id: rid, ev: app.ev.id, name: app.name, at: new Date().toISOString(), value: r.record.value, unit: r.record.unit, ok: !r.fouls.some(f => f.sev === 'bad'), note: r.noteText || r.fouls.map(f => f.label).join(', '), info: !!r.noteText });
   store.set('pe.history', list.slice(0, 200)); const msgEl = r.msgEl || $('#saveMsg'); msgEl.textContent = '저장했어요. 기록 탭에서 볼 수 있습니다.';
   if (cloud.grp) cloudSync().then((ok) => { if (ok && msgEl.isConnected) msgEl.textContent = '저장하고 소속 서버에도 올렸어요.'; });
 }
@@ -912,7 +963,7 @@ function packShare(pl) {
   const r = pl.result, id = app.ev.id, a = r.anchor || 0, end = pl.dur || (pl.frames.length ? pl.frames[pl.frames.length - 1].t : a + 6);
   const c0 = Math.max(0, a - (id === 'situp' || app.ev.dist ? 2 : 3)), c1 = Math.min(end, id === 'situp' ? a + cfgOf('situp').limitSec + 3 : app.ev.dist ? a + 45 : a + 6);
   const fr = pl.frames.filter(f => f.p && f.t >= c0 && f.t <= c1), st = Math.max(1, Math.ceil(fr.length / 400)), use = fr.filter((_, k) => k % st === 0);
-  const res = JSON.parse(JSON.stringify(r)); delete res.series; res.anchor = a - c0; (res.events || []).forEach(e => { e.t -= c0; }); (res.reps || []).forEach(e => { e.t -= c0; e.tStart -= c0; });
+  const res = JSON.parse(JSON.stringify(r)); delete res.series; res.anchor = a - c0; (res.events || []).forEach(e => { e.t -= c0; }); (res.reps || []).forEach(e => { e.t -= c0; e.tStart -= c0; }); (res.metrics || []).forEach(e => { if (e.at != null) e.at = +(e.at - c0).toFixed(3); });
   return { c0, c1, data: { W: pl.W, H: pl.H, dur: +(c1 - c0).toFixed(2), pts: pl.pts, result: res, t: use.map(f => +(f.t - c0).toFixed(3)), p: use.map(f => f.p.map(q => [Math.round(q[0]), Math.round(q[1]), q[2] >= 0.3 ? 1 : 0])) } };
 }
 function encodeClip(pl, c0, c1, onProg) { // 올리기 전에 작은 화면·낮은 화질로 다시 녹화한다(구간 길이만큼 걸림)

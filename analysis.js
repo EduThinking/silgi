@@ -3,7 +3,7 @@
   'use strict';
   const L = { NOSE: 0, SH: [11, 12], EL: [13, 14], WR: [15, 16], HIP: [23, 24], KNEE: [25, 26], ANK: [27, 28], HEEL: [29, 30], TOE: [31, 32] };
   const DEF = {
-    jump: { lineTolCm: 3, ref: { knee: [80, 110], armBack: [30, 90], armTO: [110, 170], ext: [160, 180], hipExt: [160, 180], angle: [25, 39], speed: [3.2, 4.3], reach: [45, 100], landKnee: [60, 120] } },
+    jump: { calibMode: 'height', lineTolCm: 3, ref: { knee: [80, 110], armBack: [30, 90], armTO: [110, 170], ext: [160, 180], hipExt: [160, 180], angle: [25, 39], speed: [3.2, 4.3], reach: [45, 100], landKnee: [60, 120] } },
     situp: { upMode: 'elbow', upAngle: 70, elbowTol: 0.22, downAngle: 12, limitSec: 60, hipLift: true, startT: null, ref: { validRate: [90, 100], paceDrop: [-100, 20], kneeAngle: [70, 100], hipLiftN: [0, 0] } }
   };
 
@@ -48,7 +48,7 @@
     return median(S.p.map(f => dist(f[L.SH[sd]], f[L.HIP[sd]]) + dist(f[L.HIP[sd]], f[L.KNEE[sd]]) + dist(f[L.KNEE[sd]], f[L.ANK[sd]]))) / 0.78;
   }
   function verdict(v, ref) { return !ref ? 'info' : v < ref[0] ? 'low' : v > ref[1] ? 'high' : 'good'; }
-  function metric(key, label, value, unit, ref, d = 0) { return { key, label, value: round(value, d), unit, ref: ref || null, verdict: verdict(value, ref) }; }
+  function metric(key, label, value, unit, ref, d = 0, at, j) { const v = round(value, d); return { key, label, value: v, unit, ref: ref || null, verdict: verdict(v, ref), at: at == null || !isFinite(at) ? null : round(at, 3), j: j || null }; }
   const idxAt = (S, time) => { let b = 0; for (let i = 0; i < S.n; i++) if (Math.abs(S.t[i] - time) < Math.abs(S.t[b] - time)) b = i; return b; };
 
   /* ───────── 제자리멀리뛰기 ───────── */
@@ -129,7 +129,7 @@
 
     // 자세 지표
     const sd = nearSide(S, [L.HIP, L.KNEE, L.ANK, L.SH]);
-    const J = (i, key) => P[i][L[key][sd]];
+    const J = (i, key) => P[i][L[key][sd]], JK = [L.HIP[sd], L.KNEE[sd], L.ANK[sd]], JA = [L.HIP[sd], L.SH[sd], L.WR[sd]], JH = [L.SH[sd], L.HIP[sd], L.KNEE[sd]];
     const knee = i => ang(J(i, 'HIP'), J(i, 'KNEE'), J(i, 'ANK'));
     const hipA = i => ang(J(i, 'SH'), J(i, 'HIP'), J(i, 'KNEE'));
     const arm = i => { // 몸통 기준 팔 각도, 앞쪽(진행 방향)이 +
@@ -137,7 +137,7 @@
       return -deg(Math.atan2(t[0] * v[1] - t[1] * v[0], t[0] * v[0] + t[1] * v[1])) * dir;
     };
     let deep = w0; for (let i = w0; i <= a; i++) if (knee(i) < knee(deep)) deep = i;
-    let armBack = 0; for (let i = w0; i <= a; i++) armBack = Math.max(armBack, -arm(i));
+    let armBack = 0, ib = w0; for (let i = w0; i <= a; i++) if (-arm(i) > armBack) { armBack = -arm(i); ib = i; }
     let armTO = arm(main.s); if (armTO < -90) armTO += 360;
     const ext = Math.max(...[a - 1, a, main.s].map(knee)), hipExt = Math.max(...[a - 1, a, main.s].map(hipA));
     const com = i => { const sh = mid(P[i][11], P[i][12]), hp = mid(P[i][23], P[i][24]); return mid(sh, hp); };
@@ -145,18 +145,18 @@
     const vy = ((com(a)[1] - com(b)[1]) / ppc / 100 + 4.905 * Tf * Tf) / Tf;
     const leg = dist(J(b, 'HIP'), J(b, 'KNEE')) + dist(J(b, 'KNEE'), J(b, 'ANK'));
     const hipX = mid(P[j][23], P[j][24])[0] * dir, reach = (heelR(j) - hipX) / (median(P.map((f, i) => dist(J(i, 'HIP'), J(i, 'KNEE')) + dist(J(i, 'KNEE'), J(i, 'ANK')))) || leg) * 100;
-    const le = idxAt(S, T[b] + 0.5); let landKnee = 180; for (let i = b; i <= le; i++) landKnee = Math.min(landKnee, knee(i));
+    const le = idxAt(S, T[b] + 0.5); let landKnee = 180, il = b; for (let i = b; i <= le; i++) if (knee(i) < landKnee) { landKnee = knee(i); il = i; }
     const R = cfg.ref;
     const metrics = [
-      metric('knee', '반동 깊이 (가장 깊이 앉았을 때 무릎 각도)', knee(deep), '°', R.knee),
-      metric('armBack', '팔 백스윙 (몸통 뒤로 보낸 각도)', armBack, '°', R.armBack),
-      metric('armTO', '도약 순간 팔 높이 (몸통 기준)', armTO, '°', R.armTO),
-      metric('ext', '도약 순간 무릎 펴짐', ext, '°', R.ext),
-      metric('hipExt', '도약 순간 엉덩이 펴짐', hipExt, '°', R.hipExt),
-      metric('angle', '도약 각도', deg(Math.atan2(vy, vx)), '°', R.angle),
-      metric('reach', '착지 시 발 내밀기 (다리 길이 대비)', reach, '%', R.reach),
-      metric('landKnee', '착지 무릎 굽힘 (최소 각도)', landKnee, '°', R.landKnee),
-      metric('speed', '도약 속도', Math.hypot(vx, vy), 'm/s', R.speed, 2),
+      metric('knee', '반동 깊이 (가장 깊이 앉았을 때 무릎 각도)', knee(deep), '°', R.knee, 0, T[deep], JK),
+      metric('armBack', '팔 백스윙 (몸통 뒤로 보낸 각도)', armBack, '°', R.armBack, 0, T[ib], JA),
+      metric('armTO', '도약 순간 팔 높이 (몸통 기준)', armTO, '°', R.armTO, 0, T[main.s], JA),
+      metric('ext', '도약 순간 무릎 펴짐', ext, '°', R.ext, 0, T[a], JK),
+      metric('hipExt', '도약 순간 엉덩이 펴짐', hipExt, '°', R.hipExt, 0, T[a], JH),
+      metric('angle', '도약 각도', deg(Math.atan2(vy, vx)), '°', R.angle, 0, T[main.s]),
+      metric('reach', '착지 시 발 내밀기 (다리 길이 대비)', reach, '%', R.reach, 0, T[j]),
+      metric('landKnee', '착지 무릎 굽힘 (최소 각도)', landKnee, '°', R.landKnee, 0, T[il], JK),
+      metric('speed', '도약 속도', Math.hypot(vx, vy), 'm/s', R.speed, 2, T[main.s]),
       metric('flight', '체공 시간', Tf, '초', null, 2)
     ];
     return {
@@ -195,7 +195,7 @@
     const S = prep(frames);
     if (S.n < 20) return err('사람이 인식된 구간이 너무 짧습니다. 옆에서 전신이 나오게 촬영해 주세요.');
     const T = S.t, P = S.p, n = S.n, sd = nearSide(S, [L.SH, L.HIP, L.KNEE]);
-    const J = (i, key) => P[i][L[key][sd]];
+    const J = (i, key) => P[i][L[key][sd]], JK = [L.HIP[sd], L.KNEE[sd], L.ANK[sd]], JA = [L.HIP[sd], L.SH[sd], L.WR[sd]], JH = [L.SH[sd], L.HIP[sd], L.KNEE[sd]];
     const th = smooth(P.map((f, i) => deg(Math.atan2(J(i, 'HIP')[1] - J(i, 'SH')[1], Math.abs(J(i, 'SH')[0] - J(i, 'HIP')[0])))));
     const thigh = median(P.map((f, i) => dist(J(i, 'HIP'), J(i, 'KNEE'))));
     const piv = pivots(th, 25);
@@ -230,10 +230,10 @@
     const metrics = [
       metric('validRate', '유효율 (인정 개수 ÷ 시도 개수)', inTime.length ? valid.length / inTime.length * 100 : 0, '%', R.validRate),
       metric('paceDrop', '후반 페이스 저하 (처음 대비 1회 시간 증가)', paceDrop, '%', R.paceDrop),
-      metric('kneeAngle', '무릎 각도', kneeA, '°', R.kneeAngle),
+      metric('kneeAngle', '무릎 각도', kneeA, '°', R.kneeAngle, 0, T[0], JK),
       metric('hipLiftN', '엉덩이 들림 횟수', liftN, '회', R.hipLiftN),
       metric('repTime', '평균 1회 시간', durs.length ? mean(durs) : 0, '초', null, 2),
-      metric('peakAngle', '평균 최고 상체 각도', mean(inTime.map(r => r.peak)), '°', null)
+      metric('peakAngle', '평균 최고 상체 각도', mean(inTime.map(r => r.peak)), '°', null, 0, inTime.length ? inTime[0].t : null, JH)
     ];
     const tips = [];
     const up = (reasons['팔꿈치가 무릎에 안 닿음'] || 0) + (reasons['상체 각도 부족'] || 0);
@@ -275,7 +275,7 @@
     if (!main) return err('점프 구간을 찾지 못했습니다. 준비 자세부터 착지 후 1초까지 발이 화면에 다 나오게 찍어 주세요.');
     const a = main.s - 1, b = main.e + 1, Tf = ((T[b] - T[a]) + (T[main.e] - T[main.s])) / 2, flightH = 122.6 * Tf * Tf;
     const hipY = i => (P[i][23][1] + P[i][24][1]) / 2, hipX = i => (P[i][23][0] + P[i][24][0]) / 2;
-    const sd = nearSide(S, [L.HIP, L.KNEE, L.ANK, L.SH]), J = (i, key) => P[i][L[key][sd]];
+    const sd = nearSide(S, [L.HIP, L.KNEE, L.ANK, L.SH]), J = (i, key) => P[i][L[key][sd]], JK = [L.HIP[sd], L.KNEE[sd], L.ANK[sd]], JA = [L.HIP[sd], L.SH[sd], L.WR[sd]];
     const knee = i => ang(J(i, 'HIP'), J(i, 'KNEE'), J(i, 'ANK'));
     const w0 = idxAt(S, T[a] - 1.5); let deep = w0; for (let i = w0; i <= a; i++) if (knee(i) < knee(deep)) deep = i;
     const st0 = idxAt(S, T[deep] - 1.2), stand = quant(P.slice(st0, deep + 1).map((f, i) => hipY(st0 + i)), 0.1);
@@ -284,13 +284,13 @@
     const dir = Math.sign(J(a, 'TOE')[0] - J(a, 'HEEL')[0]) || 1;
     const sh = J(main.s, 'SH'), hp = J(main.s, 'HIP'), wr = J(main.s, 'WR'), tv = [hp[0] - sh[0], hp[1] - sh[1]], av = [wr[0] - sh[0], wr[1] - sh[1]];
     let armTO = -deg(Math.atan2(tv[0] * av[1] - tv[1] * av[0], tv[0] * av[0] + tv[1] * av[1])) * dir; if (armTO < -90) armTO += 360;
-    const ext = Math.max(...[a - 1, a, main.s].map(knee)), le = idxAt(S, T[b] + 0.5); let landKnee = 180; for (let i = b; i <= le; i++) landKnee = Math.min(landKnee, knee(i));
+    const ext = Math.max(...[a - 1, a, main.s].map(knee)), le = idxAt(S, T[b] + 0.5); let landKnee = 180, il = b; for (let i = b; i <= le; i++) if (knee(i) < landKnee) { landKnee = knee(i); il = i; }
     const fouls = [], footX = i => (P[i][29][0] + P[i][30][0]) / 2;
     if (Math.abs(footX(w0) - footX(a)) > 0.08 * H) fouls.push({ code: 'step', sev: 'warn', label: '도움닫기(스텝) 의심', detail: '점프 전 1.5초 안에 발 위치가 바뀌었습니다.' });
     if (drift > 30) fouls.push({ code: 'drift', sev: 'warn', label: '제자리 이탈', detail: `뛴 자리에서 약 ${round(drift)}cm 벗어나 착지했습니다.` });
     const R = cfg.ref, metrics = [
-      metric('knee', '반동 깊이 (가장 깊이 앉았을 때 무릎 각도)', knee(deep), '°', R.knee), metric('armTO', '도약 순간 팔 높이 (몸통 기준)', armTO, '°', R.armTO),
-      metric('ext', '도약 순간 무릎 펴짐', ext, '°', R.ext), metric('drift', '착지 위치 이탈', drift, 'cm', R.drift), metric('landKnee', '착지 무릎 굽힘 (최소 각도)', landKnee, '°', R.landKnee),
+      metric('knee', '반동 깊이 (가장 깊이 앉았을 때 무릎 각도)', knee(deep), '°', R.knee, 0, T[deep], JK), metric('armTO', '도약 순간 팔 높이 (몸통 기준)', armTO, '°', R.armTO, 0, T[main.s], JA),
+      metric('ext', '도약 순간 무릎 펴짐', ext, '°', R.ext, 0, T[a], JK), metric('drift', '착지 위치 이탈', drift, 'cm', R.drift, 0, T[b]), metric('landKnee', '착지 무릎 굽힘 (최소 각도)', landKnee, '°', R.landKnee, 0, T[il], JK),
       metric('flightH', '체공 시간으로 계산한 높이', flightH, 'cm', null, 1), metric('flight', '체공 시간', Tf, '초', null, 2)];
     return { ok: true, event: 'sargent', record: { value: round(rise), unit: 'cm', valid: true }, fouls, metrics, tips: tipsFor(metrics, SARGENT_TIPS),
       notes: ['서 있을 때보다 엉덩이가 올라간 높이로 쟀습니다. 손끝 도달 높이 차와 같은 기준입니다.', '키 입력값으로 축척을 잡습니다. 키가 정확해야 합니다.'],
@@ -302,7 +302,7 @@
     o = o || {}; const cfg = mk('flex', o), S = prep(frames);
     if (S.n < 10) return err('사람이 인식된 구간이 너무 짧습니다. 옆에서 앉은 자세 전체가 나오게 찍어 주세요.');
     const H = bodyH(S), ppc = H / (o.heightCm || 170), T = S.t, P = S.p, n = S.n, sd = nearSide(S, [L.HIP, L.KNEE, L.ANK]);
-    const J = (i, key) => P[i][L[key][sd]], dir = Math.sign(median(P.map(f => f[L.ANK[sd]][0] - f[L.HIP[sd]][0]))) || 1;
+    const J = (i, key) => P[i][L[key][sd]], dir = Math.sign(median(P.map(f => f[L.ANK[sd]][0] - f[L.HIP[sd]][0]))) || 1, JK = [L.HIP[sd], L.KNEE[sd], L.ANK[sd]], JH = [L.SH[sd], L.HIP[sd], L.KNEE[sd]];
     const sole = median(P.map(f => f[L.HEEL[sd]][0] * dir));
     const reach = smooth(P.map(f => { const ix = [19, 20].filter(i => f[i][2] > 0.3).map(i => f[i][0] * dir), tip = ix.length ? Math.max(...ix) : Math.max(f[15][0] * dir, f[16][0] * dir); return (tip - sole) / ppc + cfg.tipOffsetCm; }));
     let best = -1e9, bi = 0, bj = 0, held = true;
@@ -315,7 +315,7 @@
     if (kneeMin < cfg.kneeMin) fouls.push({ code: 'knee', sev: 'bad', label: '무릎 굽힘', detail: `측정 중 무릎 각도가 ${round(kneeMin)}°까지 굽었습니다. (기준 ${cfg.kneeMin}° 이상)` });
     if (!held) fouls.push({ code: 'hold', sev: 'warn', label: '유지 시간 부족', detail: `${cfg.holdSec}초 동안 멈춘 구간이 없어 순간 최대값으로 표시했습니다.` });
     else if (peak - best > 4) fouls.push({ code: 'bounce', sev: 'warn', label: '반동 의심', detail: `순간 최대 ${round(peak)}cm까지 갔다가 돌아왔습니다. 유지한 값만 인정합니다.` });
-    const R = cfg.ref, metrics = [metric('hipAngle', '상체 접힘 각도 (작을수록 깊이 접힘)', hipAngle, '°', R.hipAngle), metric('kneeAngle', '무릎 펴짐 (최소 각도)', kneeMin, '°', R.kneeAngle), metric('sway', '유지 중 흔들림', sway, 'cm', R.sway, 1), metric('peak', '순간 최대 도달', peak, 'cm', null, 1)];
+    const R = cfg.ref, metrics = [metric('hipAngle', '상체 접힘 각도 (작을수록 깊이 접힘)', hipAngle, '°', R.hipAngle, 0, T[bi], JH), metric('kneeAngle', '무릎 펴짐 (최소 각도)', kneeMin, '°', R.kneeAngle, 0, T[bi], JK), metric('sway', '유지 중 흔들림', sway, 'cm', R.sway, 1), metric('peak', '순간 최대 도달', peak, 'cm', null, 1, T[reach.indexOf(peak)])];
     const tips = [];
     if (hipAngle > R.hipAngle[1]) tips.push({ p: '골반이 앞으로 넘어가지 않아 허리만 굽힙니다.', fix: '등을 둥글게 말기 전에 배꼽을 허벅지에 붙인다는 느낌으로 골반부터 숙이세요. 숨을 내쉬며 천천히 내려갑니다.', ex: ['햄스트링 스트레칭(한 다리씩) 3×30초', '시티드 굿모닝 3×10', '고관절 90/90 스트레칭 3×30초', '폼롤러 종아리·햄스트링 각 1분'] });
     if (kneeMin < cfg.kneeMin) tips.push({ p: '무릎이 굽으면 무효입니다.', fix: '허벅지 앞쪽에 힘을 줘 무릎을 바닥으로 누른 채 숙이세요.', ex: ['앉아서 무릎 누르고 발끝 당기기 3×20초', '종아리 스트레칭 3×30초'] });
@@ -371,8 +371,8 @@
     marks.push(tFin); events.push({ t: tFin, label: '도착' });
     const leanF = F.filter(f => f.t >= tLine + 0.05 && f.t <= tLine + 0.6).map(f => { const sh = mid(f.p[11], f.p[12]), hp = mid(f.p[23], f.p[24]); return deg(Math.atan2((sh[0] - hp[0]) * d, hp[1] - sh[1])); });
     const R = cfg.ref, metrics = [];
-    if (leanF.length) metrics.push(metric('lean', '출발 직후 상체 기울기 (수직 기준)', mean(leanF), '°', R.lean));
-    if (turnDur.length) { metrics.push(metric('turn', '턴 소요 시간 (선 앞 1.5m 들어와서 나갈 때까지)', mean(turnDur), '초', R.turn, 2)); metrics.push(metric('hipLow', '턴할 때 엉덩이 높이 (다리 길이 대비)', mean(hipLows), '%', R.hipLow)); }
+    if (leanF.length) metrics.push(metric('lean', '출발 직후 상체 기울기 (수직 기준)', mean(leanF), '°', R.lean, 0, tLine + 0.3, [12, 24, 26]));
+    if (turnDur.length) { metrics.push(metric('turn', '턴 소요 시간 (선 앞 1.5m 들어와서 나갈 때까지)', mean(turnDur), '초', R.turn, 2, events.length > 1 ? events[1].t : null)); metrics.push(metric('hipLow', '턴할 때 엉덩이 높이 (다리 길이 대비)', mean(hipLows), '%', R.hipLow, 0, events.length > 1 ? events[1].t : null)); }
     const back = c => { for (let i = fi; i > last; i--) if (near(i) && u[i - 1] >= c && u[i] < c) return cross(i, c); return null; }, t150 = back(150), t300 = back(300);
     if (t150 != null && t300 != null && t150 > t300) metrics.push(metric('finDrop', '도착 직전 감속 (마지막 1.5m 속도 저하)', (1 - (t150 - t300) / (tFin - t150)) * 100, '%', R.finDrop));
     for (let i = si; i < n; i++) if (near(i) && u[i - 1] < 200 && u[i] >= 200) { metrics.push(metric('first2m', '출발선에서 첫 2m까지', cross(i, 200) - tLine, '초', null, 2)); break; }
