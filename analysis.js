@@ -103,13 +103,13 @@
     const toeX = toeS[fA], lineX = hasLine ? o.line.x * dir : toeX;
     // 착지 뒤꿈치: 발이 멈춘 첫 프레임
     let j = b; while (j < Math.min(n - 2, b + 5) && Math.abs(heelR(j + 1) - heelR(j)) > 0.012 * H) j++;
-    const settle = idxAt(S, T[b] + 0.5); let landX = heelR(j); for (let i = j; i <= settle; i++) if (h[i] <= thr) landX = Math.min(landX, heelR(i));
+    const settle = idxAt(S, T[b] + 0.5); let landX = heelR(j); for (let i = j; i <= settle; i++) if (h[i] <= 2.5 * thr) landX = Math.min(landX, heelR(i)); // 깊이 앉으면 발 관절이 화면에서 조금 떠 보여 여유를 둔다
     const fouls = [], notes = [];
     // 착지 후 1초: 뒤로 물러남 / 손·엉덩이 짚기
     const endI = idxAt(S, T[b] + 1.0);
     let backX = landX, backWhy = null;
     for (let i = settle; i <= endI; i++) {
-      if (h[i] <= thr && heelR(i) < backX - 0.06 * H) { backX = heelR(i); backWhy = '발'; }
+      if (h[i] <= 2.5 * thr && heelR(i) < backX - 0.06 * H) { backX = heelR(i); backWhy = '발'; }
       [15, 16].forEach(w => { const q = P[i][w], hh = k * q[0] - q[1] - base; if (q[2] > 0.3 && hh < 0.05 * H && q[0] * dir < backX - 0.03 * H) { backX = q[0] * dir; backWhy = '손'; } });
       const hp = mid(P[i][23], P[i][24]), hh = k * hp[0] - hp[1] - base;
       if (hh < 0.09 * H && hp[0] * dir < backX) { backX = hp[0] * dir; backWhy = '엉덩이'; }
