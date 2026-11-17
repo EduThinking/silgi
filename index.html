@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>체대입시 실기 분석</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* 레이아웃: 폰 우선 한 줄(최대 560px), 위에 고정 바, 아래 탭 바. 밝은 블루 한 가지 테마(의도된 단일 테마). 영상 영역만 어둡게. */
+:root{
+  color-scheme:light;
+  --bg:#F3F6FF; --card:#FFFFFF; --soft:#EAF0FF; --ink:#161B33; --ink2:#525A7A; --ink3:#8C93AD; --line:#E1E7F8;
+  --accent:#3D5BFF; --accent-ink:#2238C9; --accent-soft:#DDE4FF; --tape:#FFD164; --stage:#0E1320;
+  --good:#12A150; --warn:#C97800; --bad:#E5484D;
+  --shadow:0 2px 0 rgba(34,56,201,.07),0 8px 24px rgba(34,56,201,.08);
+  --display:"Black Han Sans","IBM Plex Sans KR","Apple SD Gothic Neo",sans-serif;
+  --num:"Barlow Condensed","Black Han Sans",sans-serif;
+  --body:"Pretendard","IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  --r-lg:22px; --r-md:16px; --r-sm:12px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg)}
+body{color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;word-break:keep-all;-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding:0 16px 120px}
+section{display:flex;flex-direction:column;gap:14px}
+h1,h2,h3{margin:0;text-wrap:balance;line-height:1.25}
+h1,h2{font-family:var(--display);font-weight:400;letter-spacing:.01em}
+h1{font-size:1.6rem} h2{font-size:1.25rem} h3{font-size:.95rem;font-weight:700}
+p{margin:0}
+.muted{color:var(--ink2)} .small{font-size:.85rem} .hidden{display:none!important}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:9px 16px;font-weight:700;transition:transform .08s}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 3px 0 var(--accent-ink)}
+button.primary:active{transform:translateY(2px);box-shadow:0 1px 0 var(--accent-ink)}
+button.block{width:100%;padding:14px;font-size:1.05rem}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.ghost{border-color:transparent;background:transparent;color:var(--ink2);padding:6px 10px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+input[type=number],input[type=text],select{border:1.5px solid var(--line);background:#fff;border-radius:var(--r-sm);padding:9px 11px;min-width:0}
+input[type=number]{width:88px}
+input:focus,select:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.card{background:var(--card);border:1.5px solid var(--line);border-radius:var(--r-lg);padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px;min-width:0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center} .between{justify-content:space-between}
+
+/* 상단 바, 탭 바 */
+.top{position:sticky;top:0;z-index:20;background:var(--bg);padding:12px 0 10px;display:flex;align-items:center;gap:10px}
+.brand{display:flex;align-items:center;gap:8px;font-family:var(--display);font-size:1.4rem;color:var(--accent-ink);min-width:0}
+.brand svg{width:34px;height:34px;flex:none}
+.sp{flex:1}
+.icon-btn{width:38px;height:38px;padding:0;border-radius:50%;background:var(--soft);border:0;color:var(--accent-ink);font-size:1.1rem;flex:none}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;border-radius:999px;padding:4px 11px;background:var(--soft);color:var(--ink2);white-space:nowrap}
+.pill.good{background:#E0F6E9;color:var(--good)} .pill.warn{background:#FFF1D2;color:#9A6500} .pill.bad{background:#FDE4E4;color:var(--bad)} .pill.info{background:var(--soft);color:var(--ink2)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--warn)} .dot.ok{background:var(--good)} .dot.err{background:var(--bad)}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:25;background:#fff;border-top:1.5px solid var(--line);padding:6px 16px calc(8px + env(safe-area-inset-bottom,0px))}
+.tabbar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tabbar button{border:0;background:transparent;border-radius:var(--r-md);padding:7px 4px 5px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.74rem;color:var(--ink3)}
+.tabbar svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tabbar button[aria-current=page]{color:var(--accent-ink);background:var(--soft)}
+
+/* 홈 */
+.hello{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 4px 0 var(--accent-ink),0 12px 28px rgba(34,56,201,.25)}
+.hello h1{font-size:1.5rem} .hello p{color:#DDE4FF}
+.bests{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.best{flex:none;background:rgba(255,255,255,.14);border-radius:var(--r-md);padding:8px 14px;min-width:104px}
+.best b{display:block;font-family:var(--num);font-size:1.7rem;line-height:1;color:var(--tape)} .best span{font-size:.75rem;color:#DDE4FF}
+.label{font-size:.8rem;font-weight:700;letter-spacing:.06em;color:var(--ink3)}
+.events{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ev{text-align:left;border-radius:var(--r-lg);padding:14px;display:flex;flex-direction:column;gap:4px;min-height:132px;box-shadow:var(--shadow);font-weight:400}
+.ev .ico{width:44px;height:44px;border-radius:14px;background:var(--soft);display:grid;place-items:center;font-size:1.5rem}
+.ev b{font-family:var(--display);font-weight:400;font-size:1.08rem;margin-top:4px} .ev .what{font-size:.78rem;color:var(--ink2);line-height:1.35}
+.ev .tag{font-size:.72rem;font-weight:700;align-self:flex-start;border-radius:99px;padding:1px 9px;margin-top:auto}
+.ev .tag.on{background:var(--accent);color:#fff} .ev .tag.off{background:var(--soft);color:var(--ink3)}
+.ev:disabled{opacity:.75;box-shadow:none} .ev:not(:disabled):active{transform:translateY(2px)}
+.rec{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1.5px solid var(--line)} .rec:last-child{border-bottom:0}
+.rec .v{font-family:var(--num);font-size:1.6rem;line-height:1;font-variant-numeric:tabular-nums;min-width:86px}
+.rec .v small{font-size:.85rem;color:var(--ink3);font-family:var(--body)}
+.rec .m{flex:1;min-width:0;font-size:.85rem;color:var(--ink2)} .rec .m b{display:block;color:var(--ink);font-size:.95rem}
+.spark{width:100%;height:56px;display:block}
+.empty{text-align:center;color:var(--ink2);padding:14px 6px;font-size:.9rem}
+
+/* 종목 화면 */
+.steps{list-style:none;margin:0;padding:4px;display:flex;gap:4px;background:var(--soft);border-radius:999px}
+.steps li{flex:1;text-align:center;font-size:.85rem;font-weight:700;color:var(--ink3);border-radius:999px;padding:6px 4px}
+.steps li.on{background:#fff;color:var(--accent-ink);box-shadow:0 2px 6px rgba(34,56,201,.15)}
+.guide{margin:0;padding-left:18px;color:var(--ink2);font-size:.9rem;display:flex;flex-direction:column;gap:2px}
+.stage{background:var(--stage);border-radius:var(--r-md);overflow:hidden;display:flex;justify-content:center}
+.frame{position:relative;width:100%} .frame video{display:block;width:100%;height:auto} .frame canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:manipulation}
+.frame.pick canvas{cursor:crosshair}
+.ctrl{display:flex;gap:6px;align-items:center;flex-wrap:wrap} .ctrl button{padding:7px 12px;font-size:.85rem}
+.ctrl select{padding:6px 8px;font-size:.85rem;border-radius:999px}
+.ctrl .time{font-variant-numeric:tabular-nums;font-size:.8rem;color:var(--ink2);margin-left:auto}
+.tl{position:relative;padding-top:22px} .tl input{width:100%;margin:0;accent-color:var(--accent)}
+.mk{position:absolute;top:0;transform:translateX(-50%);font-size:.68rem;font-weight:700;line-height:1;padding:3px 5px;border-radius:6px;background:var(--accent-soft);color:var(--accent-ink);border:0;white-space:nowrap}
+.mk.bad{background:#FDE4E4;color:var(--bad)}
+.set{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 16px}
+.set label{display:flex;flex-direction:column;gap:5px;font-size:.85rem;font-weight:600;color:var(--ink2)}
+.set label.chk{flex-direction:row;align-items:center;gap:8px;color:var(--ink)}
+.seg{display:flex;background:var(--soft);border-radius:999px;padding:4px;gap:4px}
+.seg button{flex:1;border:0;background:transparent;color:var(--ink2);font-size:.88rem;padding:8px 8px}
+.seg button[aria-pressed=true]{background:#fff;color:var(--accent-ink);box-shadow:0 2px 6px rgba(34,56,201,.15)}
+.step{display:flex;gap:10px;align-items:flex-start;font-size:.92rem}
+.step i{flex:none;width:24px;height:24px;border-radius:50%;background:var(--tape);color:var(--ink);font-style:normal;font-weight:700;font-size:.8rem;display:grid;place-items:center}
+.step.done i{background:var(--good);color:#fff}
+progress{width:100%;height:10px;accent-color:var(--accent)}
+.err{color:var(--bad);font-weight:600}
+
+/* 결과 */
+.hero{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 4px 0 var(--accent-ink),0 12px 28px rgba(34,56,201,.25)}
+.hero .muted{color:#DDE4FF} .hero .pill{background:#fff}
+.hero button.primary{background:var(--tape);color:var(--ink);border-color:var(--tape);box-shadow:0 3px 0 #D9A92F}
+.record{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+.big{font-family:var(--num);font-weight:700;font-size:92px;line-height:.86;font-variant-numeric:tabular-nums}
+.big small{font-size:30px;font-weight:600;margin-left:4px;color:var(--tape)}
+.fouls{display:flex;flex-direction:column;gap:6px}
+.foul{padding:8px 12px;background:#FFF1D2;color:#5C3D00;border-radius:var(--r-sm);font-size:.88rem}
+.foul.bad{background:#FDE4E4;color:#8A1F23} .foul b{margin-right:6px}
+.metric{display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding:12px 0;border-bottom:1.5px solid var(--line)} .metric:last-child{border-bottom:0}
+.metric b{font-size:.92rem}
+.metric .val{font-family:var(--num);font-size:1.8rem;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;text-align:right}
+.metric .val span{font-size:.85rem;color:var(--ink3);font-family:var(--body);font-weight:500}
+.metric .sub{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:.75rem;color:var(--ink3)}
+.gauge{position:relative;flex:1 1 160px;height:10px;border-radius:5px;background:var(--soft)}
+.gauge .band{position:absolute;top:0;bottom:0;background:#9FE0BC;border-radius:5px}
+.gauge .me,.gauge .rf{position:absolute;top:-4px;width:5px;height:18px;border-radius:3px;background:var(--ink);transform:translateX(-50%)}
+.gauge .rf{background:var(--accent);height:14px;top:-2px}
+.tip{background:var(--soft);border-radius:var(--r-md);padding:14px;display:flex;flex-direction:column;gap:6px}
+.tip p{font-size:.9rem;color:var(--ink2)}
+.tip .ex{display:flex;gap:6px;flex-wrap:wrap} .tip .ex span{font-size:.78rem;font-weight:600;background:#fff;color:var(--accent-ink);border-radius:999px;padding:3px 10px}
+.reps{display:flex;gap:5px;flex-wrap:wrap}
+.reps button{width:36px;height:32px;padding:0;font-size:.78rem;font-variant-numeric:tabular-nums;border-radius:10px;background:var(--soft);border:0;color:var(--accent-ink)}
+.reps button.x{color:var(--bad);background:#FDE4E4}
+.bars{display:flex;gap:6px;align-items:flex-end;height:96px}
+.bars div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px;font-size:.68rem;color:var(--ink3);height:100%}
+.bars i{display:block;width:100%;background:var(--accent);border-radius:6px 6px 0 0;min-height:2px}
+.legend{display:flex;gap:12px;font-size:.75rem;color:var(--ink2);flex-wrap:wrap}
+.legend i{display:inline-block;width:5px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+@media (max-width:380px){.big{font-size:72px}.card{padding:15px}}
+@media (prefers-reduced-motion:reduce){button{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <button id="back" class="icon-btn hidden" aria-label="종목 목록으로">←</button>
+    <div class="brand"><svg viewBox="0 0 36 36" aria-hidden="true"><rect width="36" height="36" rx="11" fill="#3D5BFF"/><path d="M8 25h20" stroke="#FFD164" stroke-width="3" stroke-linecap="round"/><path d="M10 21c3-12 11-12 16-2" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/><circle cx="26" cy="19" r="2.6" fill="#fff"/></svg><span id="barTitle">실기핏</span></div>
+    <span class="sp"></span><span class="pill"><span class="dot" id="engDot"></span><span id="engTxt">엔진 불러오는 중</span></span>
+  </header>
+
+  <section id="home" class="hidden">
+    <div class="card hello"><div><h1 id="hello">오늘은 뭘 재 볼까요?</h1><p class="small">영상 한 편이면 기록과 자세를 같이 봅니다. 영상은 이 기기 밖으로 나가지 않아요.</p></div><div class="bests" id="bests"></div></div>
+    <span class="label">종목</span>
+    <div class="events" id="events"></div>
+    <div class="card"><div class="row between"><h2>최근 기록</h2><button class="ghost" id="moreRec">전체 보기</button></div><div id="recent"></div></div>
+  </section>
+
+  <section id="records" class="hidden">
+    <h1>기록</h1>
+    <div id="trend" style="display:flex;flex-direction:column;gap:14px"></div>
+    <div class="card"><h2>전체 기록</h2><div id="history"></div></div>
+  </section>
+
+  <section id="my" class="hidden">
+    <h1>내 정보</h1>
+    <div class="card"><div class="set">
+      <label for="athlete">이름<input type="text" id="athlete" placeholder="이름"></label>
+      <label for="myH">키 (제멀 "키로 어림"에 사용)<span class="row"><input type="number" id="myH" step="1"> cm</span></label></div></div>
+    <div class="card"><h2>판정 기준</h2><p class="small muted">종목 화면에서 바꾼 기준은 이 기기에 기억됩니다. 처음 값으로 되돌릴 수 있어요.</p><div class="row"><button id="resetCfg">기준 처음으로</button><span class="small muted" id="resetMsg"></span></div></div>
+    <div class="card"><h2>저장 데이터</h2><p class="small muted">기록은 지금 이 기기의 브라우저에만 저장됩니다. 다른 기기와 공유하는 기능은 배포 후에 붙습니다.</p><div class="row"><button id="wipe">기록 모두 지우기</button><span class="small muted" id="wipeMsg"></span></div></div>
+  </section>
+
+  <section id="work" class="hidden">
+    <ol class="steps"><li id="st1" class="on">1 영상</li><li id="st2">2 기준</li><li id="st3">3 결과</li></ol>
+    <div class="card">
+      <h2>영상 넣기</h2>
+      <ul class="guide" id="guide"></ul>
+      <div class="row">
+        <button class="primary" id="btnShoot">지금 촬영</button><button id="btnPick">찍어 둔 영상</button>
+        <input type="file" id="fShoot" accept="video/*" capture="environment" class="hidden"><input type="file" id="fPick" accept="video/*" class="hidden">
+      </div><span class="small muted" id="fileName"></span>
+    </div>
+    <div class="card hidden" id="playerCard">
+      <div id="player"></div>
+      <div class="row small"><span class="muted">분석 구간</span><button id="trimA">여기부터</button><button id="trimB">여기까지</button><span id="trimTxt" class="muted"></span></div>
+    </div>
+    <div class="card hidden" id="setupCard">
+      <h2>기준 맞추기</h2>
+      <div id="setup"></div>
+      <button class="primary block" id="btnRun">분석 시작</button><span class="small muted" id="runHint"></span>
+      <progress id="prog" class="hidden" max="1" value="0"></progress>
+      <p class="err hidden" id="runErr"></p>
+    </div>
+    <div id="results" class="hidden" style="display:flex;flex-direction:column;gap:14px"></div>
+  </section>
+</div>
+<nav class="tabbar" aria-label="메뉴"><div>
+  <button data-tab="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>홈</button>
+  <button data-tab="records"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>기록</button>
+  <button data-tab="my"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 15-5 16 0"/></svg>내 정보</button>
+</div></nav>
+
+<script src="vendor/pose/pose.js"></script>
+<script src="analysis.js"></script>
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const el = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstElementChild; };
+const fmt = (t) => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + s.toFixed(2).padStart(5, '0'); };
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const EVENTS = [
+  { id: 'jump', ico: '🤾', name: '제자리멀리뛰기', what: '거리, 구름선·착지 파울, 반동과 팔 스윙', on: true, fps: 30,
+    guide: ['카메라를 뛰는 방향의 옆(직각)에 두고 삼각대나 벽에 고정합니다.', '구름선부터 착지 지점 너머까지 한 화면에 담습니다. 발이 잘리면 거리를 못 잽니다.', '구름선에서 2m 되는 바닥에 테이프를 붙여 두면 거리 기준으로 씁니다.', '준비 자세부터 착지 후 1초까지 찍습니다. 60fps면 더 정확합니다.'] },
+  { id: 'situp', ico: '💪', name: '윗몸일으키기', what: '기준 충족한 횟수만 카운트, 무효 사유, 페이스', on: true, fps: 15,
+    guide: ['카메라를 몸 옆, 매트 높이쯤에 고정합니다.', '머리부터 발끝까지 화면에 담습니다.', '발을 잡아 주는 사람이 무릎과 엉덩이를 가리지 않게 합니다.', '시작 전 누운 자세부터 끝날 때까지 끊지 않고 찍습니다.'] },
+  { id: 'run10', ico: '🏃', name: '10m 왕복달리기', what: '출발선 통과~복귀 시간, 스타트, 턴', stage: 2 },
+  { id: 'run20', ico: '⚡', name: '20m 왕복달리기', what: '구간 시간, 가속, 턴', stage: 2 },
+  { id: 'shuttle', ico: '🔁', name: '셔틀런', what: '신호음, 레벨·횟수, 탈락 판정', stage: 2 },
+  { id: 'flex', ico: '🧘', name: '유연성 (좌전굴)', what: '도달 거리, 무릎 굽힘·반동', stage: 3 },
+  { id: 'sargent', ico: '🚀', name: '서전트 점프', what: '점프 높이, 반동, 팔 스윙', stage: 3 }
+];
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
+};
+const app = { ev: null, me: null, ref: null, cfg: store.get('pe.cfg', {}), name: store.get('pe.name', '') };
+const cfgOf = (id) => (app.cfg[id] = Object.assign({ calibMode: 'line', markCm: 200, heightCm: 170, refHeightCm: 175, fps: null }, JSON.parse(JSON.stringify(Analysis.DEF[id])), app.cfg[id]));
+const saveCfg = () => store.set('pe.cfg', app.cfg);
+
+/* ── 포즈 엔진 ── */
+const engine = {
+  pose: null, ready: null, last: null,
+  init() {
+    if (this.ready) return this.ready;
+    this.ready = (async () => {
+      if (typeof Pose === 'undefined') throw new Error('엔진 파일을 불러오지 못했습니다');
+      const p = new Pose({ locateFile: (f) => 'vendor/pose/' + (/\.(js|wasm)$/.test(f) ? f : f + '.wasm') });
+      p.setOptions({ modelComplexity: 1, smoothLandmarks: false, enableSegmentation: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+      p.onResults((r) => { this.last = r.poseLandmarks || null; });
+      await p.initialize(); this.pose = p;
+    })();
+    this.ready.catch(() => { this.ready = null; });
+    return this.ready;
+  },
+  async detect(video) { this.last = null; await this.pose.send({ image: video }); return this.last; }
+};
+function engineStatus() {
+  const d = $('#engDot'), t = $('#engTxt');
+  engine.init().then(() => { d.className = 'dot ok'; t.textContent = '엔진 준비됨'; })
+    .catch((e) => { d.className = 'dot err'; t.textContent = '엔진 오류'; t.title = e.message; });
+}
+
+/* ── 영상 플레이어 + 관절 오버레이 ── */
+const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [27, 29], [29, 31], [27, 31], [24, 26], [26, 28], [28, 30], [30, 32], [28, 32]];
+class Player {
+  constructor(host, label) {
+    this.host = host; this.frames = []; this.result = null; this.pts = []; this.picking = 0; this.onPick = null; this.onTime = null;
+    host.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">
+      ${label ? `<h3>${label}</h3>` : ''}
+      <div class="stage"><div class="frame"><video playsinline muted preload="auto"></video><canvas></canvas></div></div>
+      <div class="tl"><input type="range" min="0" max="1" step="0.001" value="0" aria-label="재생 위치"></div>
+      <div class="ctrl">
+        <button data-a="play">재생</button><button data-a="prev" aria-label="한 프레임 뒤로">◀ 1프레임</button><button data-a="next" aria-label="한 프레임 앞으로">1프레임 ▶</button>
+        <select data-a="rate" aria-label="재생 속도"><option value="1">1배속</option><option value="0.5">0.5배속</option><option value="0.25">0.25배속</option></select>
+        <span class="time">0:00.00</span>
+      </div></div>`;
+    this.v = $('video', host); this.c = $('canvas', host); this.ctx = this.c.getContext('2d'); this.frameEl = $('.frame', host); this.range = $('input[type=range]', host); this.tl = $('.tl', host); this.timeEl = $('.time', host);
+    host.addEventListener('click', (e) => { const a = e.target.dataset && e.target.dataset.a; if (a === 'play') this.toggle(); if (a === 'prev') this.step(-1); if (a === 'next') this.step(1); });
+    $('select', host).addEventListener('change', (e) => { this.v.playbackRate = +e.target.value; });
+    this.range.addEventListener('input', () => { this.v.pause(); this.v.currentTime = +this.range.value; });
+    ['seeked', 'timeupdate', 'loadeddata'].forEach(n => this.v.addEventListener(n, () => this.draw()));
+    this.v.addEventListener('play', () => { $('[data-a=play]', host).textContent = '멈춤'; const loop = () => { this.draw(); if (!this.v.paused) requestAnimationFrame(loop); }; loop(); });
+    this.v.addEventListener('pause', () => { $('[data-a=play]', host).textContent = '재생'; });
+    this.c.addEventListener('click', (e) => {
+      if (!this.picking) return; const r = this.c.getBoundingClientRect();
+      this.pts.push({ x: (e.clientX - r.left) / r.width * this.W, y: (e.clientY - r.top) / r.height * this.H });
+      if (this.pts.length >= this.picking) { this.picking = 0; this.frameEl.classList.remove('pick'); }
+      this.draw(); this.onPick && this.onPick();
+    });
+  }
+  load(file) {
+    return new Promise((res, rej) => {
+      if (this.url) URL.revokeObjectURL(this.url);
+      this.url = URL.createObjectURL(file); this.frames = []; this.result = null; this.pts = [];
+      this.v.onloadedmetadata = () => {
+        this.W = this.v.videoWidth; this.H = this.v.videoHeight; this.dur = this.v.duration; this.trim = [0, this.dur];
+        const sc = Math.min(1, 1280 / this.W); this.sc = sc; this.c.width = Math.round(this.W * sc); this.c.height = Math.round(this.H * sc);
+        this.frameEl.style.maxWidth = Math.round(560 * this.W / this.H) + 'px'; this.range.max = this.dur; this.setMarkers([]); res();
+      };
+      this.v.onerror = () => rej(new Error('이 영상을 열 수 없습니다. MP4(H.264)나 MOV로 다시 시도해 주세요.'));
+      this.v.src = this.url; this.v.load();
+    });
+  }
+  toggle() { if (this.v.paused) this.v.play().catch(() => { }); else this.v.pause(); }
+  step(d) { this.v.pause(); this.v.currentTime = Math.max(0, Math.min(this.dur, this.v.currentTime + d / (this.fps || 30))); }
+  seek(t) { this.v.pause(); this.v.currentTime = Math.max(0, Math.min(this.dur, t)); }
+  startPick(n) { this.pts = []; this.picking = n; this.frameEl.classList.add('pick'); this.v.pause(); this.draw(); }
+  setMarkers(ev) {
+    this.tl.querySelectorAll('.mk').forEach(m => m.remove());
+    ev.forEach(e => { const b = el(`<button class="mk ${e.bad ? 'bad' : ''}" title="${fmt(e.t)}">${esc(e.label)}</button>`); b.style.left = (e.t / this.dur * 100) + '%'; b.onclick = () => this.seek(e.t); this.tl.appendChild(b); });
+  }
+  frameAt(t) {
+    const f = this.frames; if (!f.length) return null; let lo = 0, hi = f.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (f[m].t <= t) lo = m; else hi = m; }
+    const b = Math.abs(f[hi].t - t) < Math.abs(f[lo].t - t) ? f[hi] : f[lo];
+    return Math.abs(b.t - t) < 0.2 ? b : null;
+  }
+  draw() {
+    const g = this.ctx, s = this.sc || 1, t = this.v.currentTime; if (!this.W) return;
+    g.clearRect(0, 0, this.c.width, this.c.height);
+    this.range.value = t; this.timeEl.textContent = fmt(t) + ' / ' + fmt(this.dur || 0); this.onTime && this.onTime(t);
+    const lw = Math.max(2, this.c.width / 320);
+    const fr = this.frameAt(t);
+    if (fr && fr.p) {
+      g.lineWidth = lw; g.lineCap = 'round'; g.strokeStyle = 'rgba(255,255,255,.9)';
+      BONES.forEach(([a, b]) => { const p = fr.p[a], q = fr.p[b]; if (p[2] < 0.3 || q[2] < 0.3) return; g.beginPath(); g.moveTo(p[0] * s, p[1] * s); g.lineTo(q[0] * s, q[1] * s); g.stroke(); });
+      g.fillStyle = '#FFD164'; [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32].forEach(i => { const p = fr.p[i]; if (p[2] < 0.3) return; g.beginPath(); g.arc(p[0] * s, p[1] * s, lw * 1.3, 0, 7); g.fill(); });
+    }
+    g.font = `700 ${Math.round(lw * 6.5)}px sans-serif`; g.textBaseline = 'bottom';
+    this.pts.forEach((p, i) => { g.strokeStyle = '#FFD164'; g.lineWidth = lw; g.beginPath(); g.arc(p.x * s, p.y * s, lw * 3, 0, 7); g.stroke(); g.beginPath(); g.moveTo(p.x * s, p.y * s - lw * 6); g.lineTo(p.x * s, p.y * s + lw * 6); g.stroke(); g.fillStyle = '#FFD164'; g.fillText(i ? '②' : '①', p.x * s + lw * 4, p.y * s - lw * 4); });
+    const r = this.result;
+    if (r && r.ok && r.geom) { // 제멀: 구름선~착지 거리선
+      const G = r.geom, gy = (x) => G.k * x - G.base, x1 = G.lineX, x2 = G.landX;
+      g.strokeStyle = '#FFD164'; g.lineWidth = lw * 1.2; g.beginPath(); g.moveTo(x1 * s, gy(x1) * s); g.lineTo(x2 * s, gy(x2) * s); g.stroke();
+      [x1, x2].forEach(x => { g.beginPath(); g.moveTo(x * s, gy(x) * s - lw * 7); g.lineTo(x * s, gy(x) * s + lw * 3); g.stroke(); });
+      const txt = r.record.value.toFixed(1) + ' cm', tx = (x1 + x2) / 2 * s, ty = gy((x1 + x2) / 2) * s - lw * 3, w = g.measureText(txt).width;
+      g.fillStyle = 'rgba(14,19,32,.8)'; g.fillRect(tx - w / 2 - 6, ty - lw * 8, w + 12, lw * 9); g.fillStyle = '#FFD164'; g.fillText(txt, tx - w / 2, ty);
+    }
+  }
+}
+
+/* ── 프레임별 관절 추출 ── */
+function seekTo(v, t) {
+  return new Promise((res) => {
+    if (Math.abs(v.currentTime - t) < 1e-3 && v.readyState >= 2) return res();
+    const done = () => { clearTimeout(to); v.removeEventListener('seeked', done); res(); }, to = setTimeout(done, 2500);
+    v.addEventListener('seeked', done); v.currentTime = t;
+  });
+}
+async function extract(pl, fps, onProg) {
+  await engine.init(); pl.v.pause(); pl.fps = fps;
+  const [a, b] = pl.trim, n = Math.max(1, Math.floor((b - a) * fps)), out = [];
+  for (let i = 0; i <= n; i++) {
+    const t = Math.min(pl.dur - 0.001, a + i / fps); await seekTo(pl.v, t);
+    const lm = await engine.detect(pl.v);
+    out.push({ t, p: lm ? lm.map(q => [q.x * pl.W, q.y * pl.H, q.visibility ?? 1]) : null });
+    pl.frames = out; if (i % 3 === 0) { pl.draw(); onProg(i / n); await new Promise(r => setTimeout(r)); }
+  }
+  onProg(1); return out;
+}
+
+/* ── 분석 실행 ── */
+function optsFor(pl, isRef) {
+  const c = cfgOf(app.ev.id);
+  if (app.ev.id === 'situp') return { cfg: Object.assign({}, c, isRef ? { startT: null } : {}) };
+  if (!isRef && c.calibMode === 'line' && pl.pts.length === 2) {
+    const [p, q] = pl.pts, d = Math.hypot(q.x - p.x, q.y - p.y);
+    return { cfg: c, pxPerCm: d / c.markCm, line: { x: p.x }, ground: { k: (q.y - p.y) / ((q.x - p.x) || 1e-9) } };
+  }
+  return { cfg: c, heightCm: isRef ? c.refHeightCm : c.heightCm };
+}
+function compute(pl, isRef) {
+  if (!pl || !pl.frames.length) return;
+  pl.result = Analysis[app.ev.id === 'jump' ? 'analyzeJump' : 'analyzeSitup'](pl.frames, optsFor(pl, isRef));
+  pl.setMarkers(pl.result.ok ? pl.result.events : []); pl.draw();
+}
+async function run() {
+  const pl = app.me, c = cfgOf(app.ev.id), errEl = $('#runErr'), prog = $('#prog');
+  errEl.classList.add('hidden');
+  if (app.ev.id === 'jump' && c.calibMode === 'line' && pl.pts.length < 2) { errEl.textContent = '영상 위에서 구름선과 기준점 두 곳을 먼저 찍어 주세요. 표시가 없으면 "키로 어림"을 고르세요.'; errEl.classList.remove('hidden'); return; }
+  $('#btnRun').disabled = true; prog.classList.remove('hidden'); prog.value = 0;
+  try {
+    await extract(pl, c.fps || app.ev.fps, (v) => { prog.value = v; $('#runHint').textContent = '관절 추적 중 ' + Math.round(v * 100) + '%'; });
+    compute(pl, false); renderResults();
+    if (pl.result.ok && pl.result.anchor != null) pl.seek(pl.result.anchor);
+  } catch (e) { errEl.textContent = '분석 중 문제가 생겼습니다: ' + e.message; errEl.classList.remove('hidden'); }
+  $('#btnRun').disabled = false; prog.classList.add('hidden'); $('#runHint').textContent = '설정을 바꾸면 다시 추적하지 않고 바로 다시 계산합니다.';
+}
+function recompute() { saveCfg(); if (app.me && app.me.frames.length) { compute(app.me, false); if (app.ref) compute(app.ref, true); renderResults(); } }
+
+/* ── 설정 패널 ── */
+function numField(id, label, key, step, sfx) { const c = cfgOf(app.ev.id); return `<label for="${id}">${label}<span class="row"><input type="number" id="${id}" data-k="${key}" step="${step}" value="${c[key]}"> ${sfx || ''}</span></label>`; }
+function renderSetup() {
+  const c = cfgOf(app.ev.id), host = $('#setup'), pl = app.me;
+  if (app.ev.id === 'jump') {
+    const line = c.calibMode === 'line';
+    host.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="seg" role="group" aria-label="거리 기준"><button data-mode="line" aria-pressed="${line}">구름선·기준점 찍기 (정확)</button><button data-mode="height" aria-pressed="${!line}">키로 어림 (간편)</button></div>
+      ${line ? `<div class="step ${pl.pts.length > 0 ? 'done' : ''}"><i>1</i><span>영상에서 <b>구름선 앞끝이 바닥과 만나는 곳</b>을 누릅니다.</span></div>
+        <div class="step ${pl.pts.length > 1 ? 'done' : ''}"><i>2</i><span>뛰는 방향으로 구름선에서 <input type="number" id="markCm" data-k="markCm" step="10" value="${c.markCm}" aria-label="기준점까지 거리"> cm 떨어진 <b>바닥 표시</b>를 누릅니다.</span></div>
+        <div class="row"><button id="rePick">${pl.pts.length ? '다시 찍기' : '찍기 시작'}</button><span class="small muted">${pl.picking ? '영상을 눌러 주세요 (' + (pl.pts.length + 1) + '/2)' : pl.pts.length === 2 ? '기준 완료. 구름선 밟기도 판정합니다.' : ''}</span></div>`
+        : `<div class="set">${numField('heightCm', '수험생 키', 'heightCm', 1, 'cm')}</div><p class="small muted">몸 길이로 화면 축척을 어림합니다. 오차가 5% 안팎이고 구름선 밟기는 판정하지 못합니다.</p>`}
+      <div class="set">${numField('lineTolCm', '구름선 허용 오차', 'lineTolCm', 1, 'cm')}
+        <label for="fps">추적 정밀도<select id="fps" data-k="fps"><option value="30">초당 30장 (기본)</option><option value="60">초당 60장 (60fps 영상)</option></select></label></div></div>`;
+    host.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { c.calibMode = b.dataset.mode; saveCfg(); renderSetup(); recompute(); });
+    const rp = $('#rePick', host); if (rp) rp.onclick = () => { pl.startPick(2); renderSetup(); };
+    pl.onPick = () => { renderSetup(); if (pl.pts.length === 2) recompute(); };
+  } else {
+    host.innerHTML = `<div class="set">
+      <label for="upMode">올라올 때 인정 기준<select id="upMode" data-k="upMode"><option value="elbow">팔꿈치가 무릎(허벅지 위쪽)에 닿음</option><option value="angle">상체 각도</option></select></label>
+      ${c.upMode === 'elbow' ? numField('elbowTol', '접촉 인정 거리 (허벅지 길이 대비)', 'elbowTol', 0.02, '') : numField('upAngle', '상체 각도 기준', 'upAngle', 5, '° 이상')}
+      ${numField('downAngle', '내려갈 때 어깨 닿음 기준 (상체 각도)', 'downAngle', 1, '° 이하')}
+      ${numField('limitSec', '제한 시간', 'limitSec', 10, '초')}
+      <label for="fps">추적 정밀도<select id="fps" data-k="fps"><option value="15">초당 15장 (기본, 빠름)</option><option value="30">초당 30장</option></select></label>
+      <label class="chk" for="hipLift"><input type="checkbox" id="hipLift" data-k="hipLift" ${c.hipLift ? 'checked' : ''}> 엉덩이가 들리면 무효</label>
+    </div>
+    <div class="row"><button id="setStart">지금 화면을 시작 신호로</button><button id="clrStart" class="ghost">자동(첫 동작)으로</button><span class="small muted">측정 시작: ${c.startT == null ? '첫 동작부터 자동' : fmt(c.startT)}</span></div>
+    <p class="small muted">대학마다 기준이 다릅니다. 지원 대학 요강에 맞춰 바꾸세요.</p>`;
+    $('#setStart', host).onclick = () => { c.startT = pl.v.currentTime; renderSetup(); recompute(); };
+    $('#clrStart', host).onclick = () => { c.startT = null; renderSetup(); recompute(); };
+  }
+  host.querySelectorAll('[data-k]').forEach(i => {
+    if (i.tagName === 'SELECT') i.value = String(c[i.dataset.k] ?? app.ev.fps);
+    i.onchange = () => { const k = i.dataset.k; c[k] = i.type === 'checkbox' ? i.checked : i.tagName === 'SELECT' && k === 'upMode' ? i.value : +i.value; saveCfg(); if (k === 'upMode') renderSetup(); if (k !== 'fps') recompute(); };
+  });
+}
+
+/* ── 결과 화면 ── */
+const VTXT = { good: '권장 범위', low: '권장보다 낮음', high: '권장보다 높음', info: '참고' };
+function gauge(m, rv) {
+  if (!m.ref) return '';
+  const vals = [m.ref[0], m.ref[1], m.value].concat(rv != null ? [rv] : []), lo0 = Math.min(...vals), hi0 = Math.max(...vals), pad = (hi0 - lo0) * 0.15 || 1, lo = lo0 - pad, hi = hi0 + pad, pc = (v) => ((v - lo) / (hi - lo) * 100).toFixed(1) + '%';
+  return `<div class="gauge" role="img" aria-label="권장 ${m.ref[0]}~${m.ref[1]}${m.unit}, 내 값 ${m.value}${m.unit}"><div class="band" style="left:${pc(m.ref[0])};width:${((m.ref[1] - m.ref[0]) / (hi - lo) * 100).toFixed(1)}%"></div>${rv != null ? `<div class="rf" style="left:${pc(rv)}"></div>` : ''}<div class="me" style="left:${pc(m.value)}"></div></div>`;
+}
+function renderResults() {
+  const host = $('#results'), r = app.me.result; host.classList.remove('hidden'); setStep(3);
+  if (!r.ok) { host.innerHTML = `<div class="card"><h2>분석하지 못했습니다</h2><p class="err">${esc(r.error)}</p></div>`; return; }
+  const rr = app.ref && app.ref.result && app.ref.result.ok ? app.ref.result : null, rmap = {}; if (rr) rr.metrics.forEach(m => rmap[m.key] = m.value);
+  const bad = r.fouls.some(f => f.sev === 'bad'), isJ = r.event === 'jump';
+  const status = isJ ? (bad ? ['bad', '파울'] : r.fouls.length ? ['warn', '기록 인정 · 확인 필요'] : ['good', '기록 인정']) : (r.attempts === r.record.value ? ['good', '전부 인정'] : ['warn', `${r.attempts - r.record.value}회 무효`]);
+  let h = `<div class="card hero"><div class="row between"><h2>기록</h2><span class="pill ${status[0]}">${status[1]}</span></div>
+    <div class="record"><div class="big">${isJ ? r.record.value.toFixed(1) : r.record.value}<small>${r.record.unit}</small></div>
+    <div class="small muted" style="display:flex;flex-direction:column;gap:2px;padding-bottom:6px">${r.notes.map(n => `<span>${esc(n)}</span>`).join('')}${rr ? `<span>비교 영상: ${isJ ? rr.record.value.toFixed(1) : rr.record.value}${rr.record.unit}</span>` : ''}</div></div>
+    ${r.fouls.length ? `<div class="fouls">${r.fouls.map(f => `<div class="foul ${f.sev}"><b>${esc(f.label)}</b>${esc(f.detail)}</div>`).join('')}</div>` : ''}
+    <div class="row"><button class="primary" id="btnSave">이 기록 저장</button><span class="small muted" id="saveMsg"></span></div></div>`;
+  if (!isJ) {
+    const mx = Math.max(1, ...r.buckets.map(b => b.valid));
+    h += `<div class="card"><h2>회차별 판정</h2><p class="small muted">번호를 누르면 그 순간으로 이동합니다. ×는 무효입니다.</p>
+      <div class="reps">${r.reps.filter(x => x.reason !== '시작 전').map(x => `<button class="${x.valid ? '' : 'x'}" data-t="${x.t}" title="${x.valid ? '인정' : esc(x.reason)} · 상체 ${x.peak}°">${x.valid ? x.n : '×'}</button>`).join('')}</div>
+      <h3>10초 구간별 인정 개수</h3><div class="bars">${r.buckets.map((b, i) => `<div><span>${b.valid}</span><i style="height:${b.valid / mx * 70}%"></i><span>${i * 10}~${i * 10 + 10}초</span></div>`).join('')}</div></div>`;
+  }
+  h += `<div class="card"><div class="row between"><h2>자세 지표</h2><div class="legend"><span><i style="background:var(--ink)"></i>나</span>${rr ? '<span><i style="background:var(--accent)"></i>비교 영상</span>' : ''}<span><i style="background:#9FE0BC;width:14px"></i>권장 범위</span></div></div><div>
+    ${r.metrics.map(m => `<div class="metric"><div><b>${esc(m.label)}</b></div><div class="val">${m.value}<span> ${m.unit}</span></div>
+      <div class="sub"><span class="pill ${m.verdict === 'good' ? 'good' : m.verdict === 'info' ? 'info' : 'warn'}">${VTXT[m.verdict]}</span>${gauge(m, rmap[m.key])}${m.ref ? `<span>권장 ${m.ref[0]}~${m.ref[1]}${m.unit}</span>` : ''}${rmap[m.key] != null ? `<span>비교 ${rmap[m.key]}${m.unit}</span>` : ''}</div></div>`).join('')}
+    </div><p class="small muted">권장 범위는 일반적인 지도 기준입니다. 체형과 영상 각도에 따라 5~10° 차이가 날 수 있으니 같은 조건으로 찍은 내 기록끼리 비교하는 것이 가장 믿을 만합니다.</p></div>`;
+  h += `<div class="card"><h2>고칠 점과 보강운동</h2>${r.tips.length ? r.tips.map(t => `<div class="tip"><h3>${esc(t.p)}</h3><p>${esc(t.fix)}</p>${t.ex.length ? `<div class="ex">${t.ex.map(e => `<span>${esc(e)}</span>`).join('')}</div>` : ''}</div>`).join('') : '<p>지표가 모두 권장 범위 안입니다. 지금 자세를 유지하면서 근력과 순발력을 키우면 기록이 따라옵니다.</p>'}</div>`;
+  h += `<div class="card"><h2>잘하는 사람과 비교</h2><p class="small muted">기록이 좋은 사람의 영상을 같은 방향에서 찍어 넣으면 지표를 나란히 보여 줍니다.</p>
+    <div class="row"><button id="btnRef">비교 영상 선택</button><input type="file" id="fRef" accept="video/*" class="hidden">${isJ ? `<label class="small muted" for="refH">비교 대상 키 <input type="number" id="refH" value="${cfgOf('jump').refHeightCm}"> cm</label>` : ''}<span class="small muted" id="refMsg"></span></div>
+    <progress id="refProg" class="hidden" max="1" value="0"></progress><div id="refPlayer"></div>
+    <div class="row ${rr ? '' : 'hidden'}"><button id="btnSync">${isJ ? '도약 순간' : '시작 시점'}을 맞춰 함께 재생 (0.5배속)</button></div></div>`;
+  host.innerHTML = h;
+  if (app.ref) { $('#refPlayer').replaceWith(app.ref.host); app.ref.host.id = 'refPlayer'; }
+  host.querySelectorAll('.reps button').forEach(b => b.onclick = () => { app.me.seek(+b.dataset.t); $('#playerCard').scrollIntoView({ block: 'nearest' }); });
+  $('#btnSave').onclick = () => saveRecord(r);
+  $('#btnRef').onclick = () => $('#fRef').click();
+  $('#fRef').onchange = (e) => e.target.files[0] && loadRef(e.target.files[0]);
+  const rh = $('#refH'); if (rh) rh.onchange = () => { cfgOf('jump').refHeightCm = +rh.value; recompute(); };
+  $('#btnSync').onclick = () => { [app.me, app.ref].forEach(p => { p.v.playbackRate = 0.5; p.v.currentTime = Math.max(0, p.result.anchor - 1); }); setTimeout(() => [app.me, app.ref].forEach(p => p.v.play().catch(() => { })), 300); };
+}
+async function loadRef(file) {
+  const msg = $('#refMsg'), prog = $('#refProg');
+  try {
+    if (!app.ref) { const h = document.createElement('div'); $('#refPlayer').replaceWith(h); h.id = 'refPlayer'; app.ref = new Player(h, '비교 영상'); }
+    await app.ref.load(file); prog.classList.remove('hidden');
+    await extract(app.ref, cfgOf(app.ev.id).fps || app.ev.fps, (v) => { prog.value = v; msg.textContent = '비교 영상 추적 중 ' + Math.round(v * 100) + '%'; });
+    compute(app.ref, true); renderResults();
+    $('#refMsg').textContent = app.ref.result.ok ? '' : '비교 영상: ' + app.ref.result.error;
+  } catch (e) { msg.textContent = '비교 영상을 분석하지 못했습니다: ' + e.message; prog.classList.add('hidden'); }
+}
+
+/* ── 기록 저장 ── */
+const evName = (id) => (EVENTS.find(e => e.id === id) || {}).name || id;
+function saveRecord(r) {
+  const list = store.get('pe.history', []);
+  list.unshift({ id: Date.now(), ev: app.ev.id, name: app.name, at: new Date().toISOString(), value: r.record.value, unit: r.record.unit, ok: !r.fouls.some(f => f.sev === 'bad'), note: r.fouls.map(f => f.label).join(', ') });
+  store.set('pe.history', list.slice(0, 200)); $('#saveMsg').textContent = '저장했어요. 기록 탭에서 볼 수 있습니다.';
+}
+const day = (x) => new Date(x.at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+function recRow(x, del) {
+  return `<div class="rec"><div class="v">${x.value}<small> ${x.unit}</small></div><div class="m"><b>${evName(x.ev)}</b>${day(x)}${x.name ? ' · ' + esc(x.name) : ''}</div><span class="pill ${x.ok ? (x.note ? 'warn' : 'good') : 'bad'}">${x.ok ? (x.note ? '확인 필요' : '인정') : '파울'}</span>${del ? `<button class="ghost" data-del="${x.id}" aria-label="기록 삭제">삭제</button>` : ''}</div>`;
+}
+function bestsOf(list) { const b = {}; list.filter(x => x.ok).forEach(x => { if (!b[x.ev] || x.value > b[x.ev].value) b[x.ev] = x; }); return b; }
+function renderHome() {
+  const list = store.get('pe.history', []), b = bestsOf(list);
+  $('#hello').textContent = app.name ? `${app.name} 님, 오늘은 뭘 재 볼까요?` : '오늘은 뭘 재 볼까요?';
+  $('#bests').innerHTML = Object.keys(b).map(k => `<div class="best"><b>${b[k].value}${b[k].unit}</b><span>${evName(k)} 최고</span></div>`).join('');
+  $('#events').innerHTML = EVENTS.map(e => `<button class="ev" data-ev="${e.id}" ${e.on ? '' : 'disabled'}><span class="ico" aria-hidden="true">${e.ico}</span><b>${e.name}</b><span class="what">${e.what}</span><span class="tag ${e.on ? 'on' : 'off'}">${e.on ? '측정하기' : '곧 추가'}</span></button>`).join('');
+  $('#events').querySelectorAll('button:not(:disabled)').forEach(x => x.onclick = () => { location.hash = x.dataset.ev; });
+  $('#recent').innerHTML = list.length ? list.slice(0, 3).map(x => recRow(x)).join('') : '<p class="empty">아직 저장한 기록이 없어요. 종목을 골라 첫 기록을 남겨 보세요.</p>';
+}
+function spark(vals, unit) {
+  const W = 300, H = 56, lo = Math.min(...vals), hi = Math.max(...vals), sp = (hi - lo) || 1, n = vals.length;
+  const pt = vals.map((v, i) => [n === 1 ? W / 2 : 8 + i * (W - 16) / (n - 1), H - 10 - (v - lo) / sp * (H - 22)]);
+  const d = pt.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' '), last = pt[n - 1];
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="기록 변화, 최근 ${vals[n - 1]}${unit}"><path d="${d} L${last[0]} ${H} L${pt[0][0]} ${H} Z" fill="#DDE4FF"/><path d="${d}" fill="none" stroke="#3D5BFF" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="${last[0]}" cy="${last[1]}" r="4" fill="#3D5BFF"/></svg>`;
+}
+function renderRecords() {
+  const list = store.get('pe.history', []), b = bestsOf(list);
+  $('#trend').innerHTML = Object.keys(b).map(k => { const rows = list.filter(x => x.ev === k && x.ok).reverse(), vals = rows.map(x => x.value), last = vals[vals.length - 1], prev = vals[vals.length - 2];
+    return `<div class="card"><div class="row between"><h2>${evName(k)}</h2><span class="pill">${vals.length}회 측정</span></div><div class="rec" style="border:0;padding:0"><div class="v">${b[k].value}<small> ${b[k].unit} 최고</small></div><div class="m">최근 ${last}${b[k].unit}${prev != null ? ` (직전보다 ${last - prev >= 0 ? '+' : ''}${Math.round((last - prev) * 10) / 10})` : ''}</div></div>${spark(vals, b[k].unit)}</div>`; }).join('');
+  const host = $('#history');
+  host.innerHTML = list.length ? list.slice(0, 50).map(x => recRow(x, true)).join('') : '<p class="empty">아직 저장한 기록이 없어요.</p>';
+  host.querySelectorAll('[data-del]').forEach(x => x.onclick = () => { store.set('pe.history', store.get('pe.history', []).filter(y => y.id !== +x.dataset.del)); renderRecords(); });
+}
+
+/* ── 화면 전환 ── */
+const TABS = ['home', 'records', 'my'];
+function show(id) {
+  [...TABS, 'work'].forEach(t => $('#' + t).classList.toggle('hidden', t !== id));
+  document.querySelectorAll('.tabbar button').forEach(x => { if (x.dataset.tab === id) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current'); });
+  $('#back').classList.toggle('hidden', id !== 'work'); if (id !== 'work') $('#barTitle').textContent = '실기핏';
+  window.scrollTo(0, 0);
+}
+function showTab(id) { show(id); if (id === 'home') renderHome(); if (id === 'records') renderRecords(); if (id === 'my') { $('#athlete').value = app.name; $('#myH').value = cfgOf('jump').heightCm; } }
+function setStep(n) { [1, 2, 3].forEach(i => $('#st' + i).classList.toggle('on', i === n)); }
+function showEvent(ev) {
+  app.ev = ev; app.me = null; app.ref = null; show('work'); setStep(1);
+  $('#barTitle').textContent = ev.name; $('#guide').innerHTML = ev.guide.map(g => `<li>${g}</li>`).join('');
+  ['#playerCard', '#setupCard', '#results'].forEach(s => $(s).classList.add('hidden')); $('#results').innerHTML = ''; $('#fileName').textContent = '';
+}
+async function loadMain(file) {
+  if (!file) return; $('#fileName').textContent = file.name;
+  $('#playerCard').classList.remove('hidden'); $('#setupCard').classList.remove('hidden'); $('#results').classList.add('hidden'); $('#runErr').classList.add('hidden');
+  app.ref = null; const ph = document.createElement('div'); $('#player').replaceWith(ph); ph.id = 'player'; app.me = new Player(ph);
+  try { await app.me.load(file); } catch (e) { $('#runErr').textContent = e.message; $('#runErr').classList.remove('hidden'); return; }
+  cfgOf(app.ev.id).startT = null; updTrim(); renderSetup(); setStep(2);
+  const sec = Math.round(app.me.dur * (cfgOf(app.ev.id).fps || app.ev.fps) * 0.09);
+  $('#runHint').textContent = `영상 ${app.me.dur.toFixed(1)}초 · 추적에 ${sec < 60 ? sec + '초' : Math.round(sec / 60) + '분'}쯤 걸립니다`;
+  if (app.ev.id === 'jump' && cfgOf('jump').calibMode === 'line') { app.me.startPick(2); renderSetup(); }
+  $('#playerCard').scrollIntoView({ block: 'start' });
+}
+function updTrim() { const p = app.me; $('#trimTxt').textContent = `${fmt(p.trim[0])} ~ ${fmt(p.trim[1])}`; }
+function route() { const h = location.hash.slice(1), ev = EVENTS.find(e => e.on && e.id === h); if (ev) showEvent(ev); else showTab(TABS.includes(h) ? h : 'home'); }
+const go = (h) => { if (location.hash.slice(1) === h) route(); else location.hash = h; };
+
+$('#back').onclick = () => go('home');
+document.querySelectorAll('.tabbar button').forEach(x => x.onclick = () => go(x.dataset.tab));
+$('#moreRec').onclick = () => go('records');
+$('#btnShoot').onclick = () => $('#fShoot').click(); $('#btnPick').onclick = () => $('#fPick').click();
+$('#fShoot').onchange = (e) => loadMain(e.target.files[0]); $('#fPick').onchange = (e) => loadMain(e.target.files[0]);
+$('#btnRun').onclick = run;
+$('#trimA').onclick = () => { const p = app.me; p.trim[0] = Math.min(p.v.currentTime, p.trim[1] - 0.5); updTrim(); };
+$('#trimB').onclick = () => { const p = app.me; p.trim[1] = Math.max(p.v.currentTime, p.trim[0] + 0.5); updTrim(); };
+$('#athlete').oninput = (e) => { app.name = e.target.value; store.set('pe.name', app.name); };
+$('#myH').onchange = (e) => { cfgOf('jump').heightCm = +e.target.value || 170; saveCfg(); };
+$('#resetCfg').onclick = () => { app.cfg = {}; saveCfg(); $('#myH').value = cfgOf('jump').heightCm; $('#resetMsg').textContent = '처음 값으로 되돌렸어요.'; };
+let wipeArmed = 0;
+$('#wipe').onclick = (e) => { if (!wipeArmed) { wipeArmed = 1; e.target.textContent = '한 번 더 누르면 지워집니다'; setTimeout(() => { wipeArmed = 0; e.target.textContent = '기록 모두 지우기'; }, 4000); return; } store.set('pe.history', []); wipeArmed = 0; e.target.textContent = '기록 모두 지우기'; $('#wipeMsg').textContent = '모두 지웠어요.'; };
+window.addEventListener('hashchange', route);
+route(); engineStatus();
+</script>
+</body>
+</html>
