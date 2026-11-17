@@ -3,7 +3,7 @@
   'use strict';
   const L = { NOSE: 0, SH: [11, 12], EL: [13, 14], WR: [15, 16], HIP: [23, 24], KNEE: [25, 26], ANK: [27, 28], HEEL: [29, 30], TOE: [31, 32] };
   const DEF = {
-    jump: { calibMode: 'height', lineTolCm: 3, ref: { knee: [80, 110], armBack: [30, 90], armTO: [110, 180], ext: [160, 180], hipExt: [160, 180], angle: [25, 39], speed: [2.6, 4.3], tuck: [0, 100], reach: [45, 100], landKnee: [30, 120] } },
+    jump: { calibMode: 'height', lineTolCm: 3, ref: { knee: [80, 110], armBack: [30, 90], armTO: [110, 180], ext: [160, 180], hipExt: [160, 180], angle: [25, 39], speed: [2.6, 4.3], tuck: [0, 100], tuckT: [0, 60], heelKick: [-200, 10], ankle: [60, 115], legOut: [0.03, 0.15], tdKnee: [125, 180], tdHip: [20, 100], reach: [45, 100], landKnee: [30, 120] } },
     situp: { upMode: 'elbow', upAngle: 70, elbowTol: 0.22, downAngle: 12, limitSec: 60, hipLift: true, startT: null, ref: { validRate: [90, 100], paceDrop: [-100, 20], kneeAngle: [70, 100], hipLiftN: [0, 0] } }
   };
 
@@ -63,6 +63,13 @@
     'angle:low': { p: '도약 각도가 낮아 체공 시간이 짧습니다.', fix: '시선을 3~4m 앞 바닥이 아니라 정면 위쪽에 두고, 앞쪽 위로 뛰어오르세요.', ex: ['낮은 허들(30cm) 넘어 멀리뛰기 3×5', '박스 점프 3×5'] },
     'angle:high': { p: '도약 각도가 높아 위로만 뜨고 앞으로 나가지 못합니다.', fix: '뛰기 직전 몸 전체를 앞으로 기울여 무게중심이 발끝을 넘어간 뒤에 밀어내세요. 각도는 5° 안팎으로 달라도 거리 손해가 2cm 정도라서, 속도와 착지를 먼저 고치는 편이 낫습니다.', ex: ['전경 자세 낙하 드릴 3×6', '연속 브로드 점프 3×4'] },
     'tuck:high': { p: '공중에서 몸을 접지 못하고 편 채로 떨어집니다.', fix: '발이 떨어진 뒤 무릎을 가슴 쪽으로 당겨 몸을 접고, 착지 직전에 다리를 앞으로 뻗으세요. 접었다 펴야 발이 멀리 나갑니다.', ex: ['턱 점프 3×6', '행잉 니 레이즈 3×10', 'V-업 3×10'] },
+    'tuckT:high': { p: '무릎을 늦게 가져옵니다. 내려오는 중에야 다리가 앞으로 나옵니다.', fix: '발이 떨어지자마자 무릎을 가슴 쪽으로 끌어올리세요. 최고점에 닿기 전에 무릎이 다 올라와 있어야 착지 준비할 시간이 남습니다.', ex: ['턱 점프 3×6', '행잉 니 레이즈 3×10', '장요근 밴드 니 드라이브 3×12'] },
+    'heelKick:high': { p: '공중에서 발이 뒤로 차올려져 발바닥이 하늘을 봅니다. 다리를 앞으로 가져오는 길이 멀어집니다.', fix: '뒤꿈치를 엉덩이로 차지 말고 무릎을 앞·위로 들어 올리세요. 발끝은 정강이 쪽으로 당겨 둡니다.', ex: ['턱 점프 3×6', '행잉 니 레이즈 3×10'] },
+    'ankle:high': { p: '착지 직전에 발끝이 아래로 늘어져 있습니다. 발끝이 먼저 닿으면 거리를 잃고 앞으로 고꾸라집니다.', fix: '다리를 뻗을 때 발끝을 몸 쪽으로 당겨 뒤꿈치부터 닿게 하세요.', ex: ['앉아서 무릎 누르고 발끝 당기기 3×20초', '파이크 점프 3×5'] },
+    'legOut:high': { p: '다리를 너무 일찍 뻗습니다. 발이 먼저 내려가 땅에 일찍 닿습니다.', fix: '몸을 접은 자세를 조금 더 유지하다가 땅에 닿기 직전에 뒤꿈치를 앞으로 던지세요.', ex: ['턱 점프 후 늦게 펴기 3×5', '파이크 점프 3×5'] },
+    'legOut:low': { p: '착지 전에 다리를 앞으로 뻗지 못합니다.', fix: '내려오면서 무릎을 펴 뒤꿈치를 앞으로 내밀고, 동시에 팔을 뒤로 내리세요. 팔이 뒤로 가면 다리가 앞으로 나옵니다.', ex: ['파이크 점프 3×5', 'V-업 3×10', '햄스트링 스트레칭'] },
+    'tdKnee:low': { p: '닿는 순간 무릎이 이미 굽어 있어 발이 몸 가까이 떨어집니다.', fix: '닿는 순간까지는 무릎을 펴서 뒤꿈치를 멀리 보내고, 닿은 뒤에 굽혀 받으세요.', ex: ['파이크 점프 3×5', '햄스트링 스트레칭'] },
+    'tdHip:high': { p: '닿는 순간 상체가 서 있습니다. 몸을 접어야 발이 무게중심보다 앞에 떨어집니다.', fix: '착지 직전에 가슴을 허벅지 쪽으로 숙이고 팔을 뒤로 내리세요.', ex: ['V-업 3×10', '행잉 레그 레이즈 3×8'] },
     'reach:low': { p: '착지 때 발을 앞으로 내밀지 못합니다. 여기서 10~20cm를 잃습니다.', fix: '공중에서 무릎을 가슴으로 당긴 뒤 착지 직전 발뒤꿈치를 앞으로 던지세요. 팔은 뒤로 내립니다.', ex: ['행잉 니 레이즈 3×10', '턱 점프 3×6', '파이크 점프 3×5', '햄스트링 스트레칭'] },
     'landKnee:high': { p: '착지가 뻣뻣합니다. 뒤로 넘어지거나 부상 위험이 있습니다.', fix: '뒤꿈치가 닿자마자 무릎을 굽혀 엉덩이를 발 쪽으로 당겨 오세요.', ex: ['박스 드랍 착지 3×6', '스쿼트 홀드 3×30초'] }
   };
@@ -148,6 +155,13 @@
     const hipX = mid(P[j][23], P[j][24])[0] * dir, reach = (heelR(j) - hipX) / (median(P.map((f, i) => dist(J(i, 'HIP'), J(i, 'KNEE')) + dist(J(i, 'KNEE'), J(i, 'ANK')))) || leg) * 100;
     const le = idxAt(S, T[b] + 0.5); let landKnee = 180, il = b; for (let i = b; i <= le; i++) if (knee(i) < landKnee) { landKnee = knee(i); il = i; }
     let tuck = 180, it = main.s; for (let i = main.s; i <= main.e; i++) if (hipA(i) < tuck) { tuck = hipA(i); it = i; }
+    // 공중·착지 세부: 무릎을 당긴 시점, 발이 뒤로 차올려졌는지, 발목 당김, 다리를 뻗은 시점, 닿는 순간 자세
+    const shank = median(P.map((f, i) => dist(J(i, 'KNEE'), J(i, 'ANK')))) || 1, JF = [L.KNEE[sd], L.ANK[sd], L.TOE[sd]];
+    let heelKick = -999, ik = main.s; for (let i = main.s; i <= main.e; i++) { const v = (J(i, 'KNEE')[1] - J(i, 'ANK')[1]) / shank * 100; if (v > heelKick) { heelKick = v; ik = i; } }
+    const thighL = median(P.map((f, i) => dist(J(i, 'HIP'), J(i, 'KNEE')))) || 1; let ikf = -1; for (let i = main.s; i <= main.e; i++) if ((J(i, 'KNEE')[0] - J(i, 'HIP')[0]) * dir / thighL >= 0.5) { ikf = i; break; }
+    const ankle = ang(J(main.e, 'KNEE'), J(main.e, 'ANK'), J(main.e, 'TOE'));
+    let io = b; for (let i = b; i >= it; i--) { if (knee(i) >= 140) io = i; else if (io !== b || i < b - 1) break; }
+    const legOut = knee(b) >= 140 || io !== b ? T[b] - T[io] : 0, tdKnee = Math.max(knee(b), knee(Math.max(main.s, b - 1))), tdHip = hipA(b);
     const R = cfg.ref;
     const metrics = [
       metric('knee', '반동 깊이 (가장 깊이 앉았을 때 무릎 각도)', knee(deep), '°', R.knee, 0, T[deep], JK),
@@ -157,6 +171,12 @@
       metric('hipExt', '도약 순간 엉덩이 펴짐', hipExt, '°', R.hipExt, 0, T[a], JH),
       metric('angle', '도약 각도', deg(Math.atan2(vy, vx)), '°', R.angle, 0, T[main.s]),
       metric('tuck', '공중에서 몸 접기 (엉덩이 각도, 작을수록 많이 접음)', tuck, '°', R.tuck, 0, T[it], JH),
+      metric('tuckT', '무릎이 몸 앞으로 나온 시점 (체공 시간의 몇 %)', ikf < 0 ? 100 : Math.max(0, (T[ikf] - T[a]) / Tf * 100), '%', R.tuckT, 0, T[ikf < 0 ? main.e : ikf], JH),
+      metric('heelKick', '발이 무릎보다 올라간 정도 (클수록 발바닥이 하늘을 봄)', heelKick, '%', R.heelKick, 0, T[ik], JK),
+      metric('ankle', '착지 직전 발목 당김 (작을수록 발끝을 당김)', ankle, '°', R.ankle, 0, T[main.e], JF),
+      metric('legOut', '다리를 뻗은 시점 (착지 몇 초 전)', legOut, '초', R.legOut, 2, T[io], JK),
+      metric('tdKnee', '닿는 순간 무릎 펴짐', tdKnee, '°', R.tdKnee, 0, T[b], JK),
+      metric('tdHip', '닿는 순간 몸 접힘 (작을수록 많이 접음)', tdHip, '°', R.tdHip, 0, T[b], JH),
       metric('reach', '착지 시 발 내밀기 (다리 길이 대비)', reach, '%', R.reach, 0, T[j]),
       metric('landKnee', '착지 무릎 굽힘 (최소 각도)', landKnee, '°', R.landKnee, 0, T[il], JK),
       metric('speed', '도약 속도', Math.hypot(vx, vy), 'm/s', R.speed, 2, T[main.s]),

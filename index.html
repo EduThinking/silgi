@@ -604,7 +604,10 @@ function renderSetup() {
 }
 
 /* ── 결과 화면 ── */
-const PHASES = { jump: [['도약 자세', ['knee', 'armBack', 'armTO', 'ext', 'hipExt', 'angle', 'speed'], 'armTO'], ['공중 자세', ['tuck', 'flight'], 'tuck'], ['착지', ['reach', 'landKnee'], 'landKnee']],
+const PHASES = { jump: [['① 반동 자세 (무릎을 굽혀 뛰려는 순간)', ['knee', 'armBack'], 'knee', '충분히 앉았는지, 팔을 뒤로 보냈는지 봅니다.'],
+    ['② 도약 자세 (몸을 펴고 발끝이 떨어지기 직전)', ['ext', 'hipExt', 'armTO', 'angle', 'speed'], 'ext', '발목·무릎·엉덩이가 다 펴졌는지, 팔이 앞·위로 올라왔는지 봅니다.'],
+    ['③ 공중 자세 (무릎 당기기)', ['tuckT', 'tuck', 'heelKick', 'ankle'], 'tuck', '무릎을 빨리, 충분히 당겼는지와 발이 뒤로 차올려지지 않았는지 봅니다.'],
+    ['④ 착지 자세', ['legOut', 'tdKnee', 'tdHip', 'reach', 'landKnee'], 'tdKnee', '다리를 너무 일찍 뻗지 않았는지, 닿는 순간 무릎을 펴고 몸을 접었는지 봅니다.']],
   sargent: [['도약 자세', ['knee', 'armTO', 'ext'], 'armTO'], ['공중 자세', ['flightH', 'flight'], null], ['착지', ['drift', 'landKnee'], 'landKnee']] };
 const EXD = { // 운동 이름(앞부분) → 방법 | 주의
   '카운터무브먼트 점프': '바로 서서 팔을 뒤로 보내며 빠르게 앉았다가 멈추지 않고 그대로 최대한 높이 뜁니다. 한 번 뛸 때마다 자세를 다시 잡고, 세트 사이 1~2분 쉽니다.|앉는 속도가 느리면 효과가 없습니다. 무릎이 안으로 모이지 않게 합니다.',
@@ -705,8 +708,8 @@ function renderResults() {
       <h3>10초 구간별 인정 개수</h3><div class="bars">${r.buckets.map((b, i) => `<div><span>${b.valid}</span><i style="height:${b.valid / mx * 70}%"></i><span>${i * 10}~${i * 10 + 10}초</span></div>`).join('')}</div></div>`;
   }
   const PHS = PHASES[r.event]; let phHtml = '';
-  if (PHS) phHtml = PHS.map(([name, keys, shot]) => { const ms = keys.map(k => r.metrics.find(m => m.key === k)).filter(Boolean), bad = ms.filter(m => m.verdict === 'low' || m.verdict === 'high').length;
-    return `<div class="tip"><div class="row between"><h3>${name}</h3><span class="pill ${bad ? 'warn' : 'good'}">${bad ? '고칠 점 ' + bad + '가지' : '좋아요'}</span></div>${shot && ms.some(m => m.key === shot && m.at != null) ? `<div class="shot" data-shot="${shot}"></div>` : ''}
+  if (PHS) phHtml = PHS.map(([name, keys, shot, desc]) => { const ms = keys.map(k => r.metrics.find(m => m.key === k)).filter(Boolean), bad = ms.filter(m => m.verdict === 'low' || m.verdict === 'high').length;
+    return `<div class="tip"><div class="row between"><h3>${name}</h3><span class="pill ${bad ? 'warn' : 'good'}">${bad ? '고칠 점 ' + bad + '가지' : '좋아요'}</span></div>${desc ? `<p class="small muted">${desc}</p>` : ''}${shot && ms.some(m => m.key === shot && m.at != null) ? `<div class="shot" data-shot="${shot}"></div>` : ''}
       <div>${ms.map(m => `<div class="chg"><b>${esc(m.label.replace(/ \(.*/, ''))}</b><span class="n">${m.value}${m.unit}</span><span class="${m.verdict === 'good' ? '' : 'muted'}" style="${m.verdict === 'low' || m.verdict === 'high' ? 'color:var(--warn);font-weight:700' : ''}">${m.verdict === 'info' ? '참고' : m.verdict === 'good' ? '좋음' : m.verdict === 'low' ? '부족' : '과함'}</span></div>`).join('')}</div></div>`; }).join('');
   h += `<div class="card"><div class="row between"><h2>${PHS ? '자세 분석' : '자세 지표'}</h2><div class="legend"><span><i style="background:var(--ink)"></i>나</span>${M ? '<span><i style="background:var(--accent)"></i>기준 모델</span>' : ''}<span><i style="background:#9FE0BC;width:14px"></i>권장 범위</span></div></div>${phHtml}${PHS ? '<details><summary>지표 전체와 권장 범위 보기</summary>' : ''}<div>
     ${r.metrics.map(m => `<div class="metric"><div><b>${esc(m.label)}</b></div><div class="val">${m.value}<span> ${m.unit}</span></div>
