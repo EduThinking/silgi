@@ -365,7 +365,10 @@ class Player {
         if (!isFinite(this.v.duration)) { await new Promise((r) => { const d = () => { if (isFinite(this.v.duration)) { this.v.removeEventListener('durationchange', d); r(); } }; this.v.addEventListener('durationchange', d); this.v.currentTime = 1e7; setTimeout(r, 3000); }); this.v.currentTime = 0; }
         this.W = this.v.videoWidth; this.H = this.v.videoHeight; this.dur = isFinite(this.v.duration) ? this.v.duration : (durHint || 1); this.trim = [0, this.dur];
         const sc = Math.min(1, 1280 / this.W); this.sc = sc; this.c.width = Math.round(this.W * sc); this.c.height = Math.round(this.H * sc);
-        this.frameEl.style.maxWidth = Math.round(560 * this.W / this.H) + 'px'; this.range.max = this.dur; this.setMarkers([]); res();
+        this.frameEl.style.maxWidth = Math.round(560 * this.W / this.H) + 'px'; this.range.max = this.dur; this.setMarkers([]);
+        // 안드로이드는 한 번 재생하기 전까지 첫 화면 대신 재생 아이콘만 보여 준다. 잠깐 재생했다 멈춰 첫 장면을 띄운다.
+        try { await this.v.play(); this.v.pause(); } catch (e) { }
+        await seekTo(this.v, Math.min(0.05, this.dur / 2)); this.draw(); res();
       };
       this.v.onerror = () => rej(new Error('이 영상을 열 수 없습니다. MP4(H.264)나 MOV로 다시 시도해 주세요.'));
       this.v.src = this.url; this.v.load();
