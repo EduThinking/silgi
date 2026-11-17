@@ -93,10 +93,14 @@
     if (main.s < 2 || main.e > n - 3) return err('도약 앞뒤 장면이 부족합니다. 준비 자세부터 착지 후 1초까지 담아 주세요.');
     const a = main.s - 1, b = main.e + 1, dir = Math.sign(footX[b] - footX[a]) || 1;
     // 구름 발끝 위치
-    const toeF = i => Math.max(P[i][31][0] * dir, P[i][32][0] * dir);
-    const heelR = i => Math.min(P[i][29][0] * dir, P[i][30][0] * dir);
-    const toeX = median([a - 3, a - 2, a - 1, a].filter(i => i >= 0).map(toeF));
-    const hasLine = !!(o.line && isFinite(o.line.x)), lineX = hasLine ? o.line.x * dir : toeX;
+    // 카메라가 비스듬하면 두 발이 화면에서 앞뒤로 어긋나 보인다. 출발 때 두 발끝이 같은 선에 있다고 보고 발마다 어긋난 만큼 보정한다.
+    const stance = [a - 3, a - 2, a - 1, a].filter(i => i >= 0), toeS = [0, 1].map(f => median(stance.map(i => P[i][31 + f][0] * dir))), visF = [0, 1].map(f => median(stance.map(i => Math.min(P[i][31 + f][2], P[i][29 + f][2]))));
+    const hasLine = !!(o.line && isFinite(o.line.x));
+    const fA = hasLine ? (Math.abs(toeS[0] - o.line.x * dir) <= Math.abs(toeS[1] - o.line.x * dir) ? 0 : 1) : (toeS[0] >= toeS[1] ? 0 : 1);
+    const feetUse = [0, 1].filter(f => f === fA || visF[f] > 0.5), offF = [0, 1].map(f => toeS[fA] - toeS[f]);
+    const toeF = i => P[i][31 + fA][0] * dir;
+    const heelR = i => Math.min(...feetUse.map(f => P[i][29 + f][0] * dir + offF[f]));
+    const toeX = toeS[fA], lineX = hasLine ? o.line.x * dir : toeX;
     // 착지 뒤꿈치: 발이 멈춘 첫 프레임
     let j = b; while (j < Math.min(n - 2, b + 5) && Math.abs(heelR(j + 1) - heelR(j)) > 0.012 * H) j++;
     let landX = heelR(j);
@@ -111,7 +115,8 @@
       if (hh < 0.09 * H && hp[0] * dir < backX) { backX = hp[0] * dir; backWhy = '엉덩이'; }
     }
     if (backWhy) { fouls.push({ code: 'back', sev: 'bad', label: `착지 후 ${backWhy}이 뒤에 닿음`, detail: `가장 뒤쪽 접지점 기준으로 ${round((landX - backX) * slopeF / ppc)}cm 줄어듭니다.` }); landX = backX; }
-    const distCm = (landX - lineX) * slopeF / ppc;
+    const distCm = (landX - lineX) * slopeF / ppc, skew = Math.abs(offF[1 - fA]) / ppc;
+    if (feetUse.length === 2 && skew > 2) notes.push(`두 발이 화면에서 ${round(skew)}cm 어긋나 보여 발마다 보정했습니다. 카메라를 정확히 옆에 두면 더 정확합니다.`);
     if (hasLine) {
       const over = (toeX - lineX) * slopeF / ppc;
       if (over > cfg.lineTolCm) fouls.push({ code: 'line', sev: 'bad', label: '출발선 밟음(넘음)', detail: `발끝이 선을 약 ${round(over)}cm 넘었습니다.` });
