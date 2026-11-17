@@ -173,11 +173,19 @@ progress{width:100%;height:10px;accent-color:var(--accent)}
       <label for="athlete">이름<input type="text" id="athlete" placeholder="이름"></label>
       <label for="myH">키 (제멀 "키로 어림"에 사용)<span class="row"><input type="number" id="myH" step="1"> cm</span></label></div></div>
     <div class="card"><h2>소속 연결</h2><p class="small" id="cloudState"></p>
-      <div class="set"><label for="grpCode">소속 코드<input type="text" id="grpCode" autocomplete="off" placeholder="예: 강남체대반"></label><label for="grpKey">관리자 비밀번호 (코치만 입력)<input type="password" id="grpKey" autocomplete="off"></label></div>
+      <div class="set"><label for="grpCode">소속 코드<input type="text" id="grpCode" autocomplete="off" placeholder="예: 강남체대반"></label><label for="grpPw">참여 비밀번호 (있는 소속만)<input type="password" id="grpPw" autocomplete="off"></label><label for="grpKey">관리자 비밀번호 (만든 사람만 입력)<input type="password" id="grpKey" autocomplete="off"></label></div>
       <div class="row"><button class="primary" id="grpJoin">연결</button><button id="grpNew">새 소속 만들기</button><button class="ghost" id="grpLeave">연결 끊기</button></div>
-      <p class="small muted">소속에 연결하면 이름, 종목, 기록, 판정 결과가 서버에 저장되고 코치가 볼 수 있습니다. 영상은 올라가지 않습니다. 코치가 정한 판정 기준이 자동으로 적용됩니다.</p></div>
+      <p class="small muted">소속에 연결하면 저장한 기록(이름, 종목, 수치, 판정)이 서버에 올라가 관리자가 볼 수 있습니다. "소속에 공유"를 누른 측정은 관절선 재생과 분석 결과가 소속 전원에게 보이고, 영상은 직접 고를 때만 올라갑니다. 새 소속을 만들 때 참여 비밀번호를 정하면 그 비밀번호를 아는 사람만 들어옵니다.</p></div>
     <div class="card"><h2>판정 기준</h2><p class="small muted">종목 화면에서 바꾼 기준은 이 기기에 기억됩니다. 처음 값으로 되돌릴 수 있어요.</p><div class="row"><button id="resetCfg">기준 처음으로</button><span class="small muted" id="resetMsg"></span></div></div>
     <div class="card"><h2>저장 데이터</h2><p class="small muted">기록은 지금 이 기기의 브라우저에만 저장됩니다. 다른 기기와 공유하는 기능은 배포 후에 붙습니다.</p><div class="row"><button id="wipe">기록 모두 지우기</button><span class="small muted" id="wipeMsg"></span></div></div>
+  </section>
+
+  <section id="feed" class="hidden">
+    <h1>소속 공유</h1>
+    <div class="card"><div class="row between"><h2 id="feedTitle">공유된 측정</h2><span class="pill" id="feedState"></span></div>
+      <div class="row"><label class="small muted" for="feedEv">종목 <select id="feedEv"></select></label></div>
+      <div id="feedList"></div>
+      <p class="small muted">종목 화면에서 분석을 마친 뒤 "소속에 공유"를 누르면 여기에 올라옵니다. 누르면 관절선과 기록, 고칠 점을 같이 볼 수 있습니다.</p></div>
   </section>
 
   <section id="admin" class="hidden">
@@ -185,6 +193,7 @@ progress{width:100%;height:10px;accent-color:var(--accent)}
     <div class="card"><div class="row between"><h2 id="admTitle">소속</h2><span class="pill" id="admState">불러오는 중</span></div>
       <div class="row"><label class="small muted" for="admEv">종목 <select id="admEv"></select></label></div>
       <h3>순위 (이름별 최고 기록)</h3><div id="admRank"></div></div>
+    <div class="card"><h2>참여 비밀번호</h2><p class="small muted">정해 두면 소속 코드와 이 비밀번호를 둘 다 아는 사람만 들어와 공유 내용을 볼 수 있습니다. 비워서 저장하면 없앱니다.</p><div class="row"><input type="text" id="admPw" autocomplete="off" aria-label="참여 비밀번호"><button id="admPwSet">저장</button><span class="small muted" id="admPwMsg"></span></div></div>
     <div class="card"><h2>판정 기준 배포</h2><p class="small muted">종목 화면에서 기준을 맞춘 뒤 누르면, 이 소속 전원에게 20초 안에 같은 기준이 적용됩니다.</p><div class="row"><button class="primary" id="admPush">지금 내 기준을 소속 전체에 적용</button><span class="small muted" id="admPushMsg"></span></div></div>
     <div class="card"><h2>들어온 기록</h2><div id="admList"></div></div>
   </section>
@@ -238,6 +247,7 @@ progress{width:100%;height:10px;accent-color:var(--accent)}
   <button data-tab="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>홈</button>
   <button data-tab="records"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>기록</button>
   <button data-tab="my"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 15-5 16 0"/></svg>내 정보</button>
+  <button data-tab="feed" id="tabFeed" class="hidden"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg>공유</button>
   <button data-tab="admin" id="tabAdmin" class="hidden"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="2"/></svg>관리</button>
 </div></nav>
 
@@ -314,8 +324,18 @@ function engineStatus() {
 
 /* ── 영상 플레이어 + 관절 오버레이 ── */
 const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [27, 29], [29, 31], [27, 31], [24, 26], [26, 28], [28, 30], [30, 32], [28, 32]];
+class FakeVideo { // 영상 없이 관절선만 재생할 때 쓰는 시계
+  constructor(dur) { this.duration = dur; this._t = 0; this.paused = true; this.playbackRate = 1; this.readyState = 4; this.h = {}; }
+  addEventListener(n, f) { (this.h[n] = this.h[n] || []).push(f); } removeEventListener() { }
+  emit(n) { (this.h[n] || []).forEach(f => f()); }
+  get currentTime() { return this._t; } set currentTime(v) { this._t = Math.max(0, Math.min(this.duration, v)); this.emit('seeked'); }
+  play() { if (!this.paused) return Promise.resolve(); if (this._t >= this.duration - 0.01) this._t = 0; this.paused = false; let last = performance.now();
+    const step = (now) => { if (this.paused) return; this._t += (now - last) / 1000 * this.playbackRate; last = now; if (this._t >= this.duration) { this._t = this.duration; this.pause(); this.emit('timeupdate'); return; } requestAnimationFrame(step); };
+    this.emit('play'); requestAnimationFrame(step); return Promise.resolve(); }
+  pause() { if (this.paused) return; this.paused = true; this.emit('pause'); }
+}
 class Player {
-  constructor(host, label) {
+  constructor(host, label, virt) {
     this.host = host; this.frames = []; this.result = null; this.pts = []; this.picking = 0; this.onPick = null; this.onTime = null;
     host.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">
       ${label ? `<h3>${label}</h3>` : ''}
@@ -326,7 +346,7 @@ class Player {
         <select data-a="rate" aria-label="재생 속도"><option value="1">1배속</option><option value="0.5">0.5배속</option><option value="0.25">0.25배속</option></select>
         <span class="time">0:00.00</span>
       </div></div>`;
-    this.v = $('video', host); this.c = $('canvas', host); this.ctx = this.c.getContext('2d'); this.frameEl = $('.frame', host); this.range = $('input[type=range]', host); this.tl = $('.tl', host); this.timeEl = $('.time', host);
+    this.v = $('video', host); if (virt) { this.v.remove(); this.v = new FakeVideo(virt.dur); } this.c = $('canvas', host); this.ctx = this.c.getContext('2d'); this.frameEl = $('.frame', host); this.range = $('input[type=range]', host); this.tl = $('.tl', host); this.timeEl = $('.time', host);
     host.addEventListener('click', (e) => { const a = e.target.dataset && e.target.dataset.a; if (a === 'play') this.toggle(); if (a === 'prev') this.step(-1); if (a === 'next') this.step(1); });
     $('select', host).addEventListener('change', (e) => { this.v.playbackRate = +e.target.value; });
     this.range.addEventListener('input', () => { this.v.pause(); this.v.currentTime = +this.range.value; });
@@ -334,11 +354,12 @@ class Player {
     this.v.addEventListener('play', () => { $('[data-a=play]', host).textContent = '멈춤'; const loop = () => { this.draw(); if (!this.v.paused) requestAnimationFrame(loop); }; loop(); });
     this.v.addEventListener('pause', () => { $('[data-a=play]', host).textContent = '재생'; });
     attachPick(this, this.c);
+    if (virt) { this.W = virt.W; this.H = virt.H; this.dur = virt.dur; this.trim = [0, this.dur]; this.sc = Math.min(1, 1280 / this.W); this.c.width = Math.round(this.W * this.sc); this.c.height = Math.round(this.H * this.sc); this.frameEl.style.maxWidth = Math.round(560 * this.W / this.H) + 'px'; this.frameEl.style.aspectRatio = this.W + ' / ' + this.H; this.range.max = this.dur; }
   }
   load(file, durHint) {
     return new Promise((res, rej) => {
-      if (this.url) URL.revokeObjectURL(this.url);
-      this.url = URL.createObjectURL(file); this.frames = []; this.result = null; this.pts = [];
+      if (this.url && this.url.startsWith('blob:')) URL.revokeObjectURL(this.url);
+      this.url = typeof file === 'string' ? file : URL.createObjectURL(file); this.frames = []; this.result = null; this.pts = [];
       this.v.onloadedmetadata = async () => {
         this.v.onloadedmetadata = null;
         if (!isFinite(this.v.duration)) { await new Promise((r) => { const d = () => { if (isFinite(this.v.duration)) { this.v.removeEventListener('durationchange', d); r(); } }; this.v.addEventListener('durationchange', d); this.v.currentTime = 1e7; setTimeout(r, 3000); }); this.v.currentTime = 0; }
@@ -469,7 +490,7 @@ async function run() {
   } catch (e) { errEl.textContent = '분석 중 문제가 생겼습니다: ' + e.message; errEl.classList.remove('hidden'); }
   $('#btnRun').disabled = false; prog.classList.add('hidden'); $('#runHint').textContent = '설정을 바꾸면 다시 추적하지 않고 바로 다시 계산합니다.';
 }
-function recompute() { saveCfg(); if (app.me && app.me.frames.length) { compute(app.me, false); if (app.ref) compute(app.ref, true); renderResults(); } }
+function recompute() { saveCfg(); if (app.viewing) { renderResults(); return; } if (app.me && app.me.frames.length) { compute(app.me, false); if (app.ref) compute(app.ref, true); renderResults(); } }
 
 /* ── 기준 모델(잘하는 사람)과 관절선 겹치기 ── */
 const models = () => (app.cfg._models = app.cfg._models || {});
@@ -558,7 +579,9 @@ function renderResults() {
     <div class="record"><div class="big">${fv(r.record.value)}<small>${r.record.unit}</small></div>
     <div class="small muted" style="display:flex;flex-direction:column;gap:2px;padding-bottom:6px">${r.notes.map(n => `<span>${esc(n)}</span>`).join('')}${M ? `<span>기준 모델(${esc(M.name)}): ${fv(M.value)}${M.unit}</span>` : ''}</div></div>
     ${r.fouls.length ? `<div class="fouls">${r.fouls.map(f => `<div class="foul ${f.sev}"><b>${esc(f.label)}</b>${esc(f.detail)}</div>`).join('')}</div>` : ''}
-    <div class="row"><button class="primary" id="btnSave">이 기록 저장</button><span class="small muted" id="saveMsg"></span></div></div>`;
+    <div class="row ${app.viewing ? 'hidden' : ''}"><button class="primary" id="btnSave">이 기록 저장</button><span class="small muted" id="saveMsg"></span></div>
+    <div class="row ${app.viewing || !cloud.grp ? 'hidden' : ''}"><button id="btnShare" style="color:var(--ink)">소속에 공유</button><label class="row small" for="shVid" style="gap:6px"><input type="checkbox" id="shVid"> 영상도 함께 올리기</label><span class="small" id="shareMsg"></span></div>
+    ${app.viewing ? `<p class="small muted">${esc(app.viewing)}</p>` : ''}</div>`;
   if (isS) {
     const mx = Math.max(1, ...r.buckets.map(b => b.valid));
     h += `<div class="card"><h2>회차별 판정</h2><p class="small muted">번호를 누르면 그 순간으로 이동합니다. ×는 무효입니다.</p>
@@ -587,7 +610,7 @@ function renderResults() {
   host.innerHTML = h;
   if (app.ref) { $('#refPlayer').replaceWith(app.ref.host); app.ref.host.id = 'refPlayer'; }
   host.querySelectorAll('.reps button').forEach(b => b.onclick = () => { app.me.seek(+b.dataset.t); $('#playerCard').scrollIntoView({ block: 'nearest' }); });
-  $('#btnSave').onclick = () => saveRecord(r);
+  $('#btnSave').onclick = () => saveRecord(r); $('#btnShare').onclick = shareNow;
   const gh = $('#ghOn'); if (gh) gh.onchange = () => { app.ghostOn = gh.checked; renderResults(); if (gh.checked) $('#playerCard').scrollIntoView({ block: 'nearest' }); };
   host.querySelectorAll('[data-gm]').forEach(b => b.onclick = () => { app.ghostMode = b.dataset.gm; renderResults(); });
   $('#mdSave').onclick = () => { models()[app.ev.id] = packModel(app.me, app.name || '기준 모델'); app.model = null; saveCfg(); renderResults(); $('#mdMsg').textContent = cloud.admin ? '저장했습니다. 관리 탭에서 "소속 전체에 적용"을 누르면 수험생들도 이 모델과 비교합니다.' : '이 기기에 저장했습니다.'; };
@@ -836,8 +859,9 @@ function renderRecords() {
 }
 
 /* ── 소속 연결(서버 저장) ── */
-const cloud = { grp: store.get('pe.grp', ''), key: store.get('pe.key', ''), admin: !!store.get('pe.key', ''), ver: store.get('pe.ver', -1), busy: false, err: '' };
+const cloud = { pw: store.get('pe.pw', ''), grp: store.get('pe.grp', ''), key: store.get('pe.key', ''), admin: !!store.get('pe.key', ''), ver: store.get('pe.ver', -1), busy: false, err: '' };
 async function api(a, body, qs) {
+  if (cloud.pw) { if (body && body.pw == null) body = Object.assign({ pw: cloud.pw }, body); else if (!body) qs = Object.assign({ pw: cloud.pw }, qs); }
   const r = await fetch('/api/db?a=' + a + (qs ? '&' + new URLSearchParams(qs) : ''), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {});
   let j = null; try { j = await r.json(); } catch (e) { }
   if (!r.ok || !j) throw new Error((j && j.error) || '서버에 연결하지 못했습니다. silgi.vercel.app 주소에서 열었는지 확인해 주세요.');
@@ -862,22 +886,90 @@ async function cloudSync() {
 }
 function cloudView() {
   $('#cloudState').textContent = cloud.grp ? `"${cloud.grp}" 소속에 연결됨${cloud.admin ? ' (관리자)' : ''}${cloud.err ? ' · ' + cloud.err : ''}${app.name ? '' : ' · 이름을 입력해야 기록이 올라갑니다'}` : '연결된 소속이 없습니다. 기록은 이 기기에만 저장됩니다.';
-  $('#grpCode').value = cloud.grp; $('#grpLeave').classList.toggle('hidden', !cloud.grp); $('#tabAdmin').classList.toggle('hidden', !cloud.admin);
+  $('#grpCode').value = cloud.grp; $('#grpLeave').classList.toggle('hidden', !cloud.grp); $('#tabAdmin').classList.toggle('hidden', !cloud.admin); $('#tabFeed').classList.toggle('hidden', !cloud.grp);
 }
 async function cloudJoin(create) {
-  const grp = $('#grpCode').value.trim().toLowerCase(), key = $('#grpKey').value.trim(), st = $('#cloudState');
+  const grp = $('#grpCode').value.trim().toLowerCase(), key = $('#grpKey').value.trim(), pw = $('#grpPw').value.trim(), st = $('#cloudState');
   if (!grp) { st.textContent = '소속 코드를 입력해 주세요.'; return; }
   st.textContent = '연결 중…';
   try {
-    if (create) await api('create', { grp, key });
-    const j = await api('join', { grp, key });
+    if (create) await api('create', { grp, key, pw });
+    const j = await api('join', { grp, key, pw });
+    cloud.pw = pw; store.set('pe.pw', pw);
     cloud.grp = grp; cloud.admin = !!j.admin; cloud.key = j.admin ? key : ''; cloud.ver = -1; store.set('pe.grp', grp); store.set('pe.key', cloud.key);
-    applyCfg(j.cfg, j.ver); $('#grpKey').value = ''; await cloudSync(); cloudView();
+    applyCfg(j.cfg, j.ver); $('#grpKey').value = ''; $('#grpPw').value = ''; await cloudSync(); cloudView();
   } catch (e) { st.textContent = e.message; }
 }
 $('#grpJoin').onclick = () => cloudJoin(false); $('#grpNew').onclick = () => cloudJoin(true);
-$('#grpLeave').onclick = () => { cloud.grp = ''; cloud.key = ''; cloud.admin = false; cloud.ver = -1; ['pe.grp', 'pe.key'].forEach(k => store.set(k, '')); store.set('pe.ver', -1); cloudView(); };
+$('#grpLeave').onclick = () => { cloud.grp = ''; cloud.key = ''; cloud.pw = ''; cloud.admin = false; cloud.ver = -1; ['pe.grp', 'pe.key', 'pe.pw'].forEach(k => store.set(k, '')); store.set('pe.ver', -1); cloudView(); };
 setInterval(() => { if (cloud.grp && !document.hidden && !live.on && !sh.on && !shCam.on) cloudSync().then((ok) => { if (ok && !$('#records').classList.contains('hidden')) renderRecords(); }); }, 20000);
+
+/* ── 소속 공유: 관절선 재생 + 결과, 고르면 영상까지 ── */
+function packShare(pl) {
+  const r = pl.result, id = app.ev.id, a = r.anchor || 0, end = pl.dur || (pl.frames.length ? pl.frames[pl.frames.length - 1].t : a + 6);
+  const c0 = Math.max(0, a - (id === 'situp' || app.ev.dist ? 2 : 3)), c1 = Math.min(end, id === 'situp' ? a + cfgOf('situp').limitSec + 3 : app.ev.dist ? a + 45 : a + 6);
+  const fr = pl.frames.filter(f => f.p && f.t >= c0 && f.t <= c1), st = Math.max(1, Math.ceil(fr.length / 400)), use = fr.filter((_, k) => k % st === 0);
+  const res = JSON.parse(JSON.stringify(r)); delete res.series; res.anchor = a - c0; (res.events || []).forEach(e => { e.t -= c0; }); (res.reps || []).forEach(e => { e.t -= c0; e.tStart -= c0; });
+  return { c0, c1, data: { W: pl.W, H: pl.H, dur: +(c1 - c0).toFixed(2), pts: pl.pts, result: res, t: use.map(f => +(f.t - c0).toFixed(3)), p: use.map(f => f.p.map(q => [Math.round(q[0]), Math.round(q[1]), q[2] >= 0.3 ? 1 : 0])) } };
+}
+function encodeClip(pl, c0, c1, onProg) { // 올리기 전에 작은 화면·낮은 화질로 다시 녹화한다(구간 길이만큼 걸림)
+  return new Promise((res, rej) => {
+    const v = pl.v, k = Math.min(1, 640 / Math.max(pl.W, pl.H)), cv = document.createElement('canvas'); cv.width = Math.round(pl.W * k / 2) * 2; cv.height = Math.round(pl.H * k / 2) * 2;
+    const g = cv.getContext('2d'), mt = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
+    if (!mt || !cv.captureStream) return rej(new Error('이 브라우저에서는 영상을 줄여 올릴 수 없습니다.'));
+    const rec = new MediaRecorder(cv.captureStream(30), { mimeType: mt, videoBitsPerSecond: Math.round(Math.min(900000, 3.4e6 * 8 / (c1 - c0))) }), chunks = []; let done = false;
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data); rec.onstop = () => res(new Blob(chunks, { type: mt.split(';')[0] }));
+    const finish = () => { if (done) return; done = true; v.pause(); try { rec.stop(); } catch (e) { rej(e); } };
+    const tick = () => { if (done) return; try { g.drawImage(v, 0, 0, cv.width, cv.height); } catch (e) { } onProg((v.currentTime - c0) / (c1 - c0)); if (v.currentTime >= c1 - 0.03 || v.ended) return finish(); requestAnimationFrame(tick); };
+    v.pause(); v.playbackRate = 1; seekTo(v, c0).then(() => { rec.start(); v.play().then(tick).catch(rej); setTimeout(finish, (c1 - c0) * 1000 + 4000); });
+  });
+}
+async function shareNow() {
+  const m = $('#shareMsg'), pl = app.me, r = pl.result, btn = $('#btnShare'), wantVid = $('#shVid').checked;
+  if (!app.name) { m.textContent = '내 정보 탭에서 이름을 먼저 입력해 주세요.'; return; }
+  btn.disabled = true; m.textContent = '공유하는 중…';
+  try {
+    const pk = packShare(pl), j = await api('share', { grp: cloud.grp, name: app.name, ev: app.ev.id, value: r.record.value, unit: r.record.unit, ok: !r.fouls.some(f => f.sev === 'bad'), note: r.fouls.map(f => f.label).join(', '), data: pk.data });
+    if (!wantVid) m.textContent = '관절선과 결과를 공유했어요. 공유 탭에서 볼 수 있습니다.';
+    else if (!(pl instanceof Player) || pl.v instanceof FakeVideo) m.textContent = '이 측정에는 영상이 없어 관절선과 결과만 공유했어요.';
+    else {
+      try {
+        const blob = await encodeClip(pl, pk.c0, pk.c1, (v) => { m.textContent = `영상 줄이는 중 ${Math.round(Math.max(0, Math.min(1, v)) * 100)}% (구간 길이만큼 걸립니다)`; });
+        if (blob.size > 4.3e6) throw new Error('줄인 영상이 너무 큽니다(4MB 초과). 분석 구간을 줄여 주세요.');
+        m.textContent = '영상 올리는 중…';
+        const up = await fetch('/api/db?' + new URLSearchParams({ a: 'video', grp: cloud.grp, name: app.name, id: j.id, pw: cloud.pw || '' }), { method: 'POST', headers: { 'content-type': 'application/octet-stream', 'x-vtype': blob.type }, body: blob });
+        const uj = await up.json().catch(() => ({})); if (!up.ok) throw new Error(uj.error || '영상을 올리지 못했습니다.');
+        m.textContent = '영상과 관절선, 결과를 공유했어요. 공유 탭에서 볼 수 있습니다.';
+      } catch (e) { m.textContent = '관절선과 결과는 공유했고, 영상은 올리지 못했습니다: ' + e.message; }
+    }
+  } catch (e) { m.textContent = e.message; }
+  btn.disabled = false;
+}
+let feedRows = [];
+async function renderFeed() {
+  $('#feedTitle').textContent = `"${cloud.grp}" 소속에 공유된 측정`;
+  try { feedRows = (await api('feed', null, { grp: cloud.grp })).rows; $('#feedState').textContent = feedRows.length + '건'; } catch (e) { $('#feedState').textContent = e.message; return; }
+  const sel = $('#feedEv'), cur = sel.value || '';
+  sel.innerHTML = '<option value="">전체</option>' + EVENTS.filter(e => !e.custom).map(e => `<option value="${e.id}">${e.name} (${feedRows.filter(x => x.ev === e.id).length})</option>`).join(''); sel.value = cur;
+  const rows = feedRows.filter(x => !cur || x.ev === cur);
+  $('#feedList').innerHTML = rows.length ? rows.map(x => `<div class="rec"><div class="v">${x.value}<small> ${x.unit}</small></div><div class="m"><b>${esc(x.name)} · ${evName(x.ev)}</b>${day(x)} · ${x.video ? '영상 있음' : '관절선'}</div><button data-open="${x.id}">보기</button>${cloud.admin || x.name === app.name ? `<button class="ghost" data-sdel="${x.id}" aria-label="공유 삭제">삭제</button>` : ''}</div>`).join('') : '<p class="empty">아직 공유된 측정이 없어요.</p>';
+  $('#feedList').querySelectorAll('[data-open]').forEach(b => b.onclick = () => openShare(+b.dataset.open));
+  $('#feedList').querySelectorAll('[data-sdel]').forEach(b => b.onclick = async () => { try { await api('shareDel', { grp: cloud.grp, name: app.name, key: cloud.key, id: +b.dataset.sdel }); } catch (e) { $('#feedState').textContent = e.message; } renderFeed(); });
+}
+$('#feedEv').onchange = renderFeed;
+async function openShare(id) {
+  const st = $('#feedState'); st.textContent = '불러오는 중…';
+  try {
+    const x = await api('shareGet', null, { grp: cloud.grp, id }), d = typeof x.data === 'string' ? JSON.parse(x.data) : x.data, ev = EVENTS.find(e => e.id === x.ev);
+    showEvent(ev); app.viewing = `${x.name} 님이 ${day(x)}에 공유한 측정입니다.`;
+    ['#videoCard', '#steps'].forEach(q => $(q).classList.add('hidden')); $('#barTitle').textContent = `${x.name} · ${ev.name}`;
+    const ph = document.createElement('div'); $('#player').replaceWith(ph); ph.id = 'player'; let pl = null;
+    if (x.video_url) { try { pl = new Player(ph); await pl.load(x.video_url, d.dur); } catch (e) { pl = null; } }
+    if (!pl) { ph.innerHTML = ''; pl = new Player(ph, x.video_url ? '영상을 불러오지 못해 관절선만 보여 줍니다' : '', { W: d.W, H: d.H, dur: d.dur }); }
+    pl.frames = d.t.map((t, i) => ({ t, p: d.p[i] })); pl.pts = d.pts || []; pl.fps = Math.max(5, Math.round(d.t.length / d.dur)); pl.result = d.result; app.me = pl;
+    $('#playerCard').classList.remove('hidden'); $('#trimA').parentElement.classList.add('hidden'); pl.setMarkers(d.result.events || []); renderResults(); pl.seek(d.result.anchor || 0); st.textContent = '';
+  } catch (e) { st.textContent = e.message; }
+}
 
 /* ── 관리(코치) ── */
 let admRows = [], admTimer = 0;
@@ -896,10 +988,11 @@ async function renderAdmin() {
   $('#admList').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { try { await api('del', { grp: cloud.grp, key: cloud.key, id: +b.dataset.del }); renderAdmin(); } catch (e) { $('#admState').textContent = e.message; } });
 }
 $('#admEv').onchange = renderAdmin;
+$('#admPwSet').onclick = async () => { const m = $('#admPwMsg'), v = $('#admPw').value.trim(); try { await api('setpw', { grp: cloud.grp, key: cloud.key, pw: v }); cloud.pw = v; store.set('pe.pw', v); m.textContent = v ? '저장했습니다. 조원들에게 이 비밀번호를 알려 주세요.' : '참여 비밀번호를 없앴습니다.'; } catch (e) { m.textContent = e.message; } };
 $('#admPush').onclick = async () => { const m = $('#admPushMsg'); m.textContent = '적용 중…'; try { EVENTS.forEach(e => cfgOf(e.id)); const j = await api('cfg', { grp: cloud.grp, key: cloud.key, cfg: app.cfg }); cloud.ver = j.ver; store.set('pe.ver', j.ver); m.textContent = '적용했습니다. 소속 전원에게 곧 반영됩니다.'; } catch (e) { m.textContent = e.message; } };
 
 /* ── 화면 전환 ── */
-const TABS = ['home', 'records', 'my', 'admin'];
+const TABS = ['home', 'records', 'my', 'feed', 'admin'];
 function show(id) {
   [...TABS, 'work'].forEach(t => $('#' + t).classList.toggle('hidden', t !== id));
   document.querySelectorAll('.tabbar button').forEach(x => { if (x.dataset.tab === id) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current'); });
@@ -909,10 +1002,11 @@ function show(id) {
 }
 function showTab(id) { liveClose(); shAbort(); shCamClose(); show(id); if (id === 'home') renderHome(); if (id === 'records') renderRecords(); if (id === 'my') { $('#athlete').value = app.name; $('#myH').value = cfgOf('jump').heightCm; cloudView(); }
   if (id === 'admin') { if (cloud.admin) renderAdmin(); else return go('my'); }
+  if (id === 'feed') { if (cloud.grp) renderFeed(); else return go('my'); }
   if ((id === 'home' || id === 'records') && cloud.grp) cloudSync().then((ok) => { if (ok && !$('#' + id).classList.contains('hidden')) (id === 'home' ? renderHome : renderRecords)(); }); }
 function setStep(n) { [1, 2, 3].forEach(i => $('#st' + i).classList.toggle('on', i === n)); }
 function showEvent(ev) {
-  liveClose(); shAbort(); shCamClose(); app.model = null; $('#btnRun').classList.remove('hidden');
+  liveClose(); shAbort(); shCamClose(); app.model = null; app.viewing = null; $('#trimA').parentElement.classList.remove('hidden'); $('#btnRun').classList.remove('hidden');
   app.ev = ev; app.me = null; app.ref = null; show('work'); setStep(1);
   $('#videoCard').classList.toggle('hidden', !!ev.custom); $('#steps').classList.toggle('hidden', !!ev.custom); $('#shCard').classList.toggle('hidden', !ev.custom); if (ev.custom) shReset();
   $('#guideFig').innerHTML = FIGS[ev.fig] || '';
@@ -934,7 +1028,7 @@ function updTrim() { const p = app.me; $('#trimTxt').textContent = `${fmt(p.trim
 function route() { const h = location.hash.slice(1), ev = EVENTS.find(e => e.on && e.id === h); if (ev) showEvent(ev); else showTab(TABS.includes(h) ? h : 'home'); }
 const go = (h) => { if (location.hash.slice(1) === h) route(); else location.hash = h; };
 
-$('#back').onclick = () => go('home');
+$('#back').onclick = () => go(app.viewing ? 'feed' : 'home');
 document.querySelectorAll('.tabbar button').forEach(x => x.onclick = () => go(x.dataset.tab));
 $('#moreRec').onclick = () => go('records');
 $('#btnShoot').onclick = () => $('#fShoot').click(); $('#btnPick').onclick = () => $('#fPick').click();
