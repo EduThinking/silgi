@@ -91,6 +91,8 @@ button.nudge{width:40px;height:36px;padding:0}
 .fig{width:100%;max-width:440px;height:auto;display:block}.fig text{font:600 11px var(--body);fill:var(--ink2)}
 .shot{grid-column:1/-1}.shot canvas{width:100%;max-width:380px;border-radius:12px;display:block;background:#0E1320}
 .chg{display:flex;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1.5px solid var(--line);font-size:.88rem;flex-wrap:wrap}.chg:last-child{border-bottom:0}.chg b{flex:1 1 150px}.chg .n{font-variant-numeric:tabular-nums;font-weight:700}
+.exd{background:#fff;border-radius:10px;padding:8px 12px;margin-top:6px;font-size:.88rem}.exd summary{cursor:pointer;font-weight:700;color:var(--accent-ink)}.exd p{margin-top:6px;font-size:.86rem;color:var(--ink)}.exd p.muted{color:var(--ink2)}
+details>summary{cursor:pointer;font-weight:700;padding:6px 0}
 .tip .cmp{color:var(--ink);font-size:.86rem;background:#fff;border-radius:10px;padding:6px 10px}
 .seg button:disabled{opacity:.4}
 .ctrl{display:flex;gap:6px;align-items:center;flex-wrap:wrap} .ctrl button{padding:7px 12px;font-size:.85rem}
@@ -165,8 +167,9 @@ progress{width:100%;height:10px;accent-color:var(--accent)}
 
   <section id="records" class="hidden">
     <h1>기록</h1>
-    <div id="trend" style="display:flex;flex-direction:column;gap:14px"></div>
-    <div class="card"><h2>전체 기록</h2><div id="history"></div></div>
+    <div class="card"><h2>내 최고 기록</h2><div id="bestTbl"></div><p class="small muted">측정이 끝나면 자동으로 저장되고, 파울이 아닌 기록 중 가장 좋은 것만 여기에 보입니다.</p></div>
+    <details class="card"><summary>종목별 변화 그래프</summary><div id="trend" style="display:flex;flex-direction:column;gap:14px"></div></details>
+    <details class="card"><summary>전체 기록 목록</summary><div id="history"></div></details>
   </section>
 
   <section id="my" class="hidden">
@@ -493,7 +496,7 @@ async function run() {
   $('#btnRun').disabled = true; prog.classList.remove('hidden'); prog.value = 0;
   try {
     await extract(pl, c.fps || app.ev.fps, (v) => { prog.value = v; $('#runHint').textContent = '관절 추적 중 ' + Math.round(v * 100) + '%'; });
-    compute(pl, false); renderResults();
+    compute(pl, false); renderResults(); autoSave();
     if (pl.result.ok && pl.result.anchor != null) pl.seek(pl.result.anchor);
   } catch (e) { errEl.textContent = '분석 중 문제가 생겼습니다: ' + e.message; errEl.classList.remove('hidden'); }
   $('#btnRun').disabled = false; prog.classList.add('hidden'); $('#runHint').textContent = '설정을 바꾸면 다시 추적하지 않고 바로 다시 계산합니다.';
@@ -601,6 +604,68 @@ function renderSetup() {
 }
 
 /* ── 결과 화면 ── */
+const PHASES = { jump: [['도약 자세', ['knee', 'armBack', 'armTO', 'ext', 'hipExt', 'angle', 'speed'], 'armTO'], ['공중 자세', ['tuck', 'flight'], 'tuck'], ['착지', ['reach', 'landKnee'], 'landKnee']],
+  sargent: [['도약 자세', ['knee', 'armTO', 'ext'], 'armTO'], ['공중 자세', ['flightH', 'flight'], null], ['착지', ['drift', 'landKnee'], 'landKnee']] };
+const EXD = { // 운동 이름(앞부분) → 방법 | 주의
+  '카운터무브먼트 점프': '바로 서서 팔을 뒤로 보내며 빠르게 앉았다가 멈추지 않고 그대로 최대한 높이 뜁니다. 한 번 뛸 때마다 자세를 다시 잡고, 세트 사이 1~2분 쉽니다.|앉는 속도가 느리면 효과가 없습니다. 무릎이 안으로 모이지 않게 합니다.',
+  '박스 스쿼트': '무릎 높이 박스 앞에 서서 엉덩이를 뒤로 빼며 박스에 살짝 닿을 때까지 앉았다가 발바닥 전체로 밀어 일어납니다. 바벨이나 덤벨을 들면 좋습니다.|박스에 털썩 주저앉지 않습니다. 허리가 말리지 않게 가슴을 폅니다.',
+  '스쿼트 점프': '무릎 90° 자세에서 2초 멈췄다가 반동 없이 그대로 뛰어오릅니다. 착지는 조용히 무릎을 굽혀 받습니다.|멈춘 자세에서 더 내려갔다 뛰면 안 됩니다.',
+  '쿼터 스쿼트 점프': '무릎을 3분의 1만 굽힌 얕은 자세에서 빠르게 연속으로 뜁니다. 바닥에 닿는 시간을 짧게 가져갑니다.|깊이 앉지 않습니다. 발목 탄성으로 튀는 느낌입니다.',
+  '뎁스 점프': '30cm 박스에서 한 발 내디뎌 떨어진 뒤, 닿자마자 바로 위로 뛰어오릅니다. 세트 사이 2분 쉽니다.|닿아 있는 시간이 길어지면 박스를 낮춥니다. 무릎 통증이 있으면 하지 않습니다.',
+  '팔 스윙 타이밍 드릴': '제자리에서 앉으며 팔을 뒤로, 일어나며 팔을 앞·위로 던지는 동작만 뛰지 않고 반복합니다. 팔이 눈높이에 올 때 발뒤꿈치가 들리게 맞춥니다.|팔이 다리보다 늦으면 안 됩니다. 팔이 먼저 나갑니다.',
+  '팔 스윙 점프': '다리 힘은 70%만 쓰고 팔을 최대한 크고 빠르게 휘둘러 뜁니다. 팔이 몸을 끌어올리는 느낌을 익힙니다.|어깨에 힘이 들어가 귀 쪽으로 올라가지 않게 합니다.',
+  '밴드 풀 어파트': '가슴 높이에서 밴드를 양손으로 잡고 팔을 편 채 좌우로 벌려 날개뼈를 모읍니다. 2초 버티고 돌아옵니다.|허리를 젖히지 않습니다.',
+  '어깨 신전 스트레칭': '뒤에 있는 의자나 봉에 양손을 얹고 천천히 앉아 팔이 몸 뒤로 넘어가게 합니다. 30초씩 3번.|어깨 앞쪽이 찌르듯 아프면 범위를 줄입니다.',
+  '메디신볼 언더핸드 전방 던지기': '3~5kg 공을 다리 사이로 내렸다가 앉은 자세에서 일어나며 앞·위로 최대한 멀리 던집니다. 제멀과 같은 리듬입니다.|팔로만 던지지 않고 다리로 밀어 던집니다.',
+  '메디신볼 전방 던지기': '3~5kg 공을 다리 사이로 내렸다가 일어나며 앞·위로 최대한 멀리 던집니다.|팔로만 던지지 않고 다리로 밀어 던집니다.',
+  '메디신볼 오버헤드 수직 던지기': '공을 다리 사이에서 머리 위로 수직으로 최대한 높이 던집니다. 떨어지는 공은 받지 말고 피합니다.|허리를 과하게 젖히지 않습니다.',
+  '케틀벨 스윙': '엉덩이를 뒤로 접었다가 앞으로 강하게 펴는 힘으로 케틀벨을 가슴 높이까지 보냅니다. 팔은 줄 역할만 합니다.|스쿼트처럼 앉지 않습니다. 허리가 둥글어지면 무게를 낮춥니다.',
+  '카프 레이즈': '계단 끝에 앞꿈치만 걸치고 뒤꿈치를 끝까지 내렸다가 끝까지 올립니다. 위에서 1초 멈춥니다.|반동으로 튕기지 않습니다.',
+  '연속 브로드 점프': '제멀을 멈추지 않고 3~4번 이어서 뜁니다. 착지하자마자 바로 다음 점프로 넘어갑니다.|착지가 무너지면 횟수를 줄입니다.',
+  '힙 쓰러스트': '등을 벤치에 대고 골반 위에 바벨을 올린 뒤 엉덩이를 들어 몸이 일직선이 될 때까지 폅니다. 위에서 1초 조입니다.|허리로 들지 않고 엉덩이로 듭니다. 턱을 당깁니다.',
+  '루마니안 데드리프트': '무릎을 살짝 굽힌 채 엉덩이를 뒤로 빼며 바벨을 정강이 중간까지 내렸다가 엉덩이를 앞으로 밀며 일어납니다.|등이 둥글어지면 안 됩니다. 바벨은 다리에 붙여 내립니다.',
+  '낮은 허들': '출발선 1m 앞에 30cm 허들을 놓고 그 위를 넘어 멀리뛰기를 합니다. 위로 뜨는 감각을 익힙니다.|허들을 의식해 다리만 들지 말고 몸 전체가 떠야 합니다.',
+  '박스 점프': '무릎 높이 박스 위로 뛰어올라 조용히 착지합니다. 내려올 때는 걸어 내려옵니다.|박스 위에서 깊이 주저앉아야 올라가진다면 박스가 높은 것입니다.',
+  '전경 자세 낙하 드릴': '발을 모으고 서서 몸을 일직선으로 앞으로 기울이다가 넘어지기 직전에 뜁니다. 무게중심이 발끝을 넘어가는 순간을 익힙니다.|허리만 숙이지 않고 발목부터 기울입니다.',
+  '행잉 니 레이즈': '철봉에 매달려 무릎을 가슴까지 당겨 올렸다가 천천히 내립니다.|몸을 흔들어 반동을 쓰지 않습니다.',
+  '행잉 레그 레이즈': '철봉에 매달려 다리를 편 채 골반 높이까지 올렸다가 천천히 내립니다. 어려우면 무릎을 굽힙니다.|반동을 쓰지 않습니다.',
+  '턱 점프': '제자리에서 뛰어 무릎을 가슴까지 당겼다가 펴며 착지합니다. 연속으로 합니다.|상체를 숙여 무릎에 맞추지 말고 무릎을 올립니다.',
+  '파이크 점프': '제자리에서 뛰어 다리를 편 채 앞으로 올려 손끝으로 발끝을 터치합니다.|햄스트링이 뻣뻣하면 스트레칭 후에 합니다.',
+  '햄스트링 스트레칭': '한 다리를 앞에 펴고 앉아 등을 편 채 골반부터 숙입니다. 30초씩 양쪽 3번.|반동을 주지 않습니다. 등을 둥글게 말아 닿으려 하지 않습니다.',
+  '박스 드랍 착지': '30~40cm 박스에서 떨어져 앞꿈치→뒤꿈치 순으로 닿으며 무릎과 엉덩이를 굽혀 소리 없이 멈춥니다. 2초 버팁니다.|무릎이 안으로 모이지 않게 합니다.',
+  '스쿼트 홀드': '허벅지가 바닥과 평행한 자세로 30초 버팁니다. 뒤꿈치는 바닥에 붙입니다.|허리가 말리면 깊이를 줄입니다.',
+  '제자리 연속 점프': '바닥에 표시를 하고 그 위에서 연속으로 뛰어 같은 자리에 착지합니다.|앞뒤로 밀리면 시선을 정면에 고정합니다.',
+  '싯업 상단 2초 정지': '올라와서 팔꿈치가 무릎에 닿은 자세로 2초 멈췄다가 내려갑니다.|턱을 들지 않습니다.',
+  'V-업': '누워서 팔과 다리를 동시에 들어 올려 손끝으로 발끝을 터치합니다.|허리가 아프면 무릎을 굽혀서 합니다.',
+  '장요근 밴드 니 드라이브': '발등에 밴드를 걸고 서서 무릎을 골반 높이까지 빠르게 들어 올립니다. 한쪽씩 합니다.|상체가 뒤로 젖혀지지 않게 합니다.',
+  '템포 싯업': '메트로놈에 맞춰 1초에 올라오고 1초에 내려갑니다. 내려갈 때 어깨가 매트에 닿는 걸 확인합니다.|속도보다 리듬이 일정한지가 중요합니다.',
+  '할로우 바디 록': '등 아래를 바닥에 붙이고 팔다리를 살짝 든 자세로 앞뒤로 흔듭니다.|허리가 뜨면 다리를 더 높입니다.',
+  '할로우 바디 홀드': '등 아래를 바닥에 붙이고 팔과 다리를 살짝 든 자세로 버팁니다.|허리가 뜨면 다리를 더 높입니다.',
+  '데드버그': '누워서 팔다리를 들고, 반대쪽 팔과 다리를 천천히 뻗었다가 돌아옵니다.|허리가 바닥에서 뜨지 않게 합니다.',
+  '리버스 크런치': '누워서 무릎을 굽힌 채 엉덩이를 말아 올려 무릎을 가슴 쪽으로 당깁니다.|다리를 던지는 반동을 쓰지 않습니다.',
+  '타바타 싯업': '20초 최대 속도, 10초 휴식을 8번 반복합니다(4분). 주 2~3회.|자세가 무너진 횟수는 세지 않습니다.',
+  '1분 싯업': '실전처럼 1분을 재고 3세트, 세트 사이 2분 쉽니다. 매번 개수를 적어 둡니다.|첫 세트에 다 쓰지 않고 3세트 개수가 비슷하게 맞춥니다.',
+  '플랭크': '팔꿈치와 발끝으로 몸을 일직선으로 버팁니다.|엉덩이가 올라가거나 처지지 않게 합니다.',
+  '시티드 굿모닝': '다리를 벌리고 앉아 등을 편 채 골반부터 앞으로 숙였다가 올라옵니다.|등을 말지 않습니다.',
+  '고관절 90/90 스트레칭': '앞다리와 뒷다리를 각각 90°로 접고 앉아 앞다리 쪽으로 상체를 숙입니다. 30초씩.|무릎이 아프면 범위를 줄입니다.',
+  '폼롤러': '종아리와 허벅지 뒤를 폼롤러에 올리고 천천히 굴립니다. 아픈 곳에서 10초 멈춥니다.|뼈나 무릎 뒤는 누르지 않습니다.',
+  '앉아서 무릎 누르고 발끝 당기기': '다리를 펴고 앉아 허벅지에 힘을 줘 무릎 뒤를 바닥에 누르면서 발끝을 몸 쪽으로 당깁니다.|무릎이 뜨면 거기까지만 합니다.',
+  '종아리 스트레칭': '벽을 짚고 한 발을 뒤로 빼 뒤꿈치를 바닥에 누릅니다. 30초씩.|뒤꿈치가 뜨지 않게 합니다.',
+  'PNF 스트레칭': '끝까지 숙인 자세에서 다리 뒤쪽에 6초 힘을 줬다가 풀면서 조금 더 숙입니다. 4번 반복합니다.|힘을 줄 때 숨을 참지 않습니다.',
+  '월 드릴': '벽을 짚고 몸을 45° 기울인 자세에서 무릎을 번갈아 빠르게 올립니다. 머리부터 발목까지 일직선을 유지합니다.|엉덩이가 뒤로 빠지지 않게 합니다.',
+  '푸시업 스타트': '엎드린 자세에서 신호에 맞춰 일어나며 5~10m를 전력으로 달립니다.|일어나면서 바로 서지 말고 낮게 밀고 나갑니다.',
+  '슬레드·밴드 저항 달리기': '허리에 밴드를 걸고 파트너가 뒤에서 잡아 준 상태로 10m를 밀고 나갑니다.|저항이 너무 세서 자세가 무너지면 줄입니다.',
+  '폴링 스타트': '몸을 앞으로 기울이다 넘어지기 직전에 첫발을 내디뎌 5~10m 달립니다.|첫발이 몸 앞이 아니라 몸 아래에 떨어져야 합니다.',
+  '3점 스타트': '한 손을 바닥에 짚은 자세에서 5m를 반복해서 달립니다. 첫 세 걸음을 짧고 강하게 밉니다.|첫걸음에 상체를 세우지 않습니다.',
+  '5-10-5 프로 어질리티': '가운데 선에서 출발해 5m 옆 선 터치, 반대쪽 10m 선 터치, 가운데로 5m 복귀합니다. 시간을 잽니다.|선을 손으로 터치할 만큼 낮춥니다.',
+  '감속 스텝 드릴': '전력으로 달리다가 세 걸음 안에 완전히 멈춥니다. 걸음마다 무릎을 더 굽혀 낮아집니다.|마지막 발에 무릎이 안으로 꺾이지 않게 합니다.',
+  '래터럴 바운드': '한 발로 옆으로 멀리 뛰어 반대 발로 착지해 1초 버팁니다. 좌우 반복합니다.|착지할 때 무릎이 흔들리지 않게 합니다.',
+  '사이드 런지': '옆으로 크게 디뎌 한쪽 엉덩이를 뒤로 빼며 앉았다가 밀어 돌아옵니다.|반대쪽 다리는 펴 둡니다.',
+  '스케이터 점프': '스케이트 타듯 좌우로 연속해서 뜁니다. 착지 발 뒤로 반대 발을 보냅니다.|상체를 낮게 유지합니다.',
+  '낮은 자세 셔플': '무릎을 굽힌 낮은 자세로 옆으로 10m 이동합니다. 발이 교차하지 않게 합니다.|일어서지 않습니다.',
+  '선 통과 후 5m': '결승선 5m 뒤에 표시를 하고 그 표시까지 전력으로 달립니다.|선 앞에서 속도를 줄이지 않습니다.'
+};
+const exHtml = (e) => { const k = Object.keys(EXD).find(n => e.startsWith(n)); if (!k) return `<div class="exd"><b>${esc(e)}</b></div>`; const [how, cue] = EXD[k].split('|'); return `<details class="exd"><summary>${esc(e)}</summary><p>${how}</p><p class="muted">주의: ${cue}</p></details>`; };
 const VTXT = { good: '권장 범위', low: '권장보다 낮음', high: '권장보다 높음', info: '참고' };
 function gauge(m, rv) {
   if (!m.ref) return '';
@@ -618,7 +683,7 @@ function renderResults() {
     <div class="record"><div class="big">${fv(r.record.value)}<small>${r.record.unit}</small></div>
     <div class="small muted" style="display:flex;flex-direction:column;gap:2px;padding-bottom:6px">${r.notes.map(n => `<span>${esc(n)}</span>`).join('')}${M ? `<span>기준 모델(${esc(M.name)}): ${fv(M.value)}${M.unit}</span>` : ''}</div></div>
     ${r.fouls.length ? `<div class="fouls">${r.fouls.map(f => `<div class="foul ${f.sev}"><b>${esc(f.label)}</b>${esc(f.detail)}</div>`).join('')}</div>` : ''}
-    <div class="row ${app.viewing ? 'hidden' : ''}"><button class="primary" id="btnSave">이 기록 저장</button><span class="small muted" id="saveMsg"></span></div>
+    <div class="row ${app.viewing ? 'hidden' : ''}"><button class="hidden" id="btnSave">저장</button><span class="small muted" id="saveMsg">${app.me._savedId ? '기록 탭에 자동으로 저장했어요.' : ''}</span></div>
     <div class="row ${app.viewing || !cloud.grp ? 'hidden' : ''}"><button id="btnShare" style="color:var(--ink)">소속에 공유</button><label class="row small" for="shVid" style="gap:6px"><input type="checkbox" id="shVid"> 영상도 함께 올리기</label><span class="small" id="shareMsg"></span></div>
     ${app.viewing ? `<p class="small muted">${esc(app.viewing)}</p>` : ''}</div>`;
   const pv = !app.viewing && (store.get('pe.last', {})[app.ev.id] || []).filter(x => x.id !== app.me._savedId)[0];
@@ -631,7 +696,7 @@ function renderResults() {
     h += `<div class="card"><div class="row between"><h2>지난 측정과 달라진 점</h2><span class="pill ${dv === 0 ? 'info' : up ? 'good' : 'bad'}">${dv === 0 ? '기록 같음' : up ? '기록 좋아짐' : '기록 나빠짐'}</span></div>
       <p class="small">${day(pv)} 저장한 기록 <b>${pv.value}${pv.unit}</b> → 이번 <b>${fv(r.record.value)}${r.record.unit}</b> (${dv > 0 ? '+' : ''}${dv}${r.record.unit})</p>
       ${sec('좋아진 점', 'good', 'good')}${sec('나빠진 점', 'bad', 'bad')}${sec('그대로인 점', 'same', 'ink2')}${sec('참고 수치', 'info', 'ink2')}
-      <p class="small muted">"이 기록 저장"을 누른 측정끼리 비교합니다. 촬영 위치가 달라지면 각도 수치도 조금 달라질 수 있어요.</p></div>`;
+      <p class="small muted">바로 앞에 저장된 측정과 비교합니다. 촬영 위치가 달라지면 각도 수치도 조금 달라질 수 있어요.</p></div>`;
   }
   if (isS) {
     const mx = Math.max(1, ...r.buckets.map(b => b.valid));
@@ -639,14 +704,18 @@ function renderResults() {
       <div class="reps">${r.reps.filter(x => x.reason !== '시작 전').map(x => `<button class="${x.valid ? '' : 'x'}" data-t="${x.t}" title="${x.valid ? '인정' : esc(x.reason)} · 상체 ${x.peak}°">${x.valid ? x.n : '×'}</button>`).join('')}</div>
       <h3>10초 구간별 인정 개수</h3><div class="bars">${r.buckets.map((b, i) => `<div><span>${b.valid}</span><i style="height:${b.valid / mx * 70}%"></i><span>${i * 10}~${i * 10 + 10}초</span></div>`).join('')}</div></div>`;
   }
-  h += `<div class="card"><div class="row between"><h2>자세 지표</h2><div class="legend"><span><i style="background:var(--ink)"></i>나</span>${M ? '<span><i style="background:var(--accent)"></i>기준 모델</span>' : ''}<span><i style="background:#9FE0BC;width:14px"></i>권장 범위</span></div></div><div>
+  const PHS = PHASES[r.event]; let phHtml = '';
+  if (PHS) phHtml = PHS.map(([name, keys, shot]) => { const ms = keys.map(k => r.metrics.find(m => m.key === k)).filter(Boolean), bad = ms.filter(m => m.verdict === 'low' || m.verdict === 'high').length;
+    return `<div class="tip"><div class="row between"><h3>${name}</h3><span class="pill ${bad ? 'warn' : 'good'}">${bad ? '고칠 점 ' + bad + '가지' : '좋아요'}</span></div>${shot && ms.some(m => m.key === shot && m.at != null) ? `<div class="shot" data-shot="${shot}"></div>` : ''}
+      <div>${ms.map(m => `<div class="chg"><b>${esc(m.label.replace(/ \(.*/, ''))}</b><span class="n">${m.value}${m.unit}</span><span class="${m.verdict === 'good' ? '' : 'muted'}" style="${m.verdict === 'low' || m.verdict === 'high' ? 'color:var(--warn);font-weight:700' : ''}">${m.verdict === 'info' ? '참고' : m.verdict === 'good' ? '좋음' : m.verdict === 'low' ? '부족' : '과함'}</span></div>`).join('')}</div></div>`; }).join('');
+  h += `<div class="card"><div class="row between"><h2>${PHS ? '자세 분석' : '자세 지표'}</h2><div class="legend"><span><i style="background:var(--ink)"></i>나</span>${M ? '<span><i style="background:var(--accent)"></i>기준 모델</span>' : ''}<span><i style="background:#9FE0BC;width:14px"></i>권장 범위</span></div></div>${phHtml}${PHS ? '<details><summary>지표 전체와 권장 범위 보기</summary>' : ''}<div>
     ${r.metrics.map(m => `<div class="metric"><div><b>${esc(m.label)}</b></div><div class="val">${m.value}<span> ${m.unit}</span></div>
-      ${m.at != null ? `<div class="shot" data-shot="${m.key}"></div>` : ''}<div class="sub"><span class="pill ${m.verdict === 'good' ? 'good' : m.verdict === 'info' ? 'info' : 'warn'}">${VTXT[m.verdict]}</span>${gauge(m, rmap[m.key])}${m.ref ? `<span>권장 ${m.ref[0]}~${m.ref[1]}${m.unit}</span>` : ''}${rmap[m.key] != null ? `<span>기준 모델 ${rmap[m.key]}${m.unit}</span>` : ''}</div></div>`).join('')}
-    </div><p class="small muted">권장 범위는 일반적인 지도 기준입니다. 체형과 영상 각도에 따라 5~10° 차이가 날 수 있으니 같은 조건으로 찍은 내 기록끼리 비교하는 것이 가장 믿을 만합니다.</p></div>`;
+      ${m.at != null && !PHS ? `<div class="shot" data-shot="${m.key}"></div>` : ''}<div class="sub"><span class="pill ${m.verdict === 'good' ? 'good' : m.verdict === 'info' ? 'info' : 'warn'}">${VTXT[m.verdict]}</span>${gauge(m, rmap[m.key])}${m.ref ? `<span>권장 ${m.ref[0]}~${m.ref[1]}${m.unit}</span>` : ''}${rmap[m.key] != null ? `<span>기준 모델 ${rmap[m.key]}${m.unit}</span>` : ''}</div></div>`).join('')}
+    </div>${PHS ? '</details>' : ''}<p class="small muted">권장 범위는 일반적인 지도 기준입니다. 체형과 영상 각도에 따라 5~10° 차이가 날 수 있으니 같은 조건으로 찍은 내 기록끼리 비교하는 것이 가장 믿을 만합니다.</p></div>`;
   const mOf = (k) => r.metrics.find(m => m.key === k), sev = (m) => !m || !m.ref || m.verdict === 'good' || m.verdict === 'info' ? 0 : (m.verdict === 'low' ? m.ref[0] - m.value : m.value - m.ref[1]) / ((m.ref[1] - m.ref[0]) || 1);
   const tips = r.tips.slice().sort((a, b) => sev(mOf(b.key)) - sev(mOf(a.key))), goods = r.metrics.filter(m => m.verdict === 'good').slice(0, 3).map(m => m.label.replace(/ \(.*/, ''));
   const cmp = (m) => { if (!m || !m.ref || m.verdict === 'good') return ''; const d = Math.round((m.verdict === 'low' ? m.ref[0] - m.value : m.value - m.ref[1]) * 10) / 10; return `<p class="cmp"><b>나 ${m.value}${m.unit}</b> · 잘하는 사람 ${m.ref[0]}~${m.ref[1]}${m.unit}${rmap[m.key] != null ? ` · 기준 모델 ${rmap[m.key]}${m.unit}` : ''} → <b>${d}${m.unit} ${m.verdict === 'low' ? '모자랍니다' : '넘칩니다'}</b></p>`; };
-  h += `<div class="card"><h2>잘하는 사람과 비교해 고칠 점</h2>${goods.length ? `<p class="small"><b>잘하고 있는 점</b> ${goods.map(esc).join(', ')}</p>` : ''}${tips.length ? `<p class="small muted">차이가 큰 것부터 적었습니다. 위에서부터 하나씩 고치세요.</p>` + tips.map((t, i) => `<div class="tip"><h3>${i + 1}. ${esc(t.p)}</h3>${cmp(mOf(t.key))}<p><b>이렇게 고치세요.</b> ${esc(t.fix)}</p>${t.ex.length ? `<div class="ex">${t.ex.map(e => `<span>${esc(e)}</span>`).join('')}</div>` : ''}</div>`).join('') : '<p>지표가 모두 잘하는 사람 범위 안입니다. 지금 자세를 유지하면서 근력과 순발력을 키우면 기록이 따라옵니다.</p>'}
+  h += `<div class="card"><h2>잘하는 사람과 비교해 고칠 점</h2>${goods.length ? `<p class="small"><b>잘하고 있는 점</b> ${goods.map(esc).join(', ')}</p>` : ''}${tips.length ? `<p class="small muted">차이가 큰 것부터 적었습니다. 위에서부터 하나씩 고치세요.</p>` + tips.map((t, i) => `<div class="tip"><h3>${i + 1}. ${esc(t.p)}</h3>${cmp(mOf(t.key))}<p><b>이렇게 고치세요.</b> ${esc(t.fix)}</p>${t.ex.length ? `<p><b>보강운동</b> (누르면 방법이 나옵니다)</p><div>${t.ex.map(exHtml).join('')}</div>` : ''}</div>`).join('') : '<p>지표가 모두 잘하는 사람 범위 안입니다. 지금 자세를 유지하면서 근력과 순발력을 키우면 기록이 따라옵니다.</p>'}
     <p class="small muted">"잘하는 사람" 범위는 운동역학 연구와 지도 현장에서 쓰는 일반 기준입니다. 실제 상위권 수험생의 측정을 기준 모델로 저장하면 그 사람 수치와 관절선으로 직접 비교합니다.${(Analysis.BASIS[app.ev.dist ? 'run' : app.ev.id] || []).length ? '<br>참고한 연구: ' + Analysis.BASIS[app.ev.dist ? 'run' : app.ev.id].map(b => `<a href="${b[1]}" target="_blank" rel="noopener">${esc(b[0])}</a>`).join(' · ') : ''}</p></div>`;
   h += `<div class="card"><h2>관절선 겹쳐 보기</h2>
     <p class="small">${M ? `기준 모델: <b>${esc(M.name)}</b> ${fv(M.value)}${M.unit}` : '아직 기준 모델이 없습니다. 잘하는 사람을 이 화면에서 똑같이 측정한 뒤 아래 "기준 모델로 저장"을 누르면 됩니다.'}</p>
@@ -765,7 +834,7 @@ async function liveStop() {
       liveClose(); $('#liveCard').classList.add('hidden');
     } catch (e) { app.me = live; }
   }
-  renderResults(); $('#runHint').textContent = `실시간 추적 ${frames.length}장 (초당 약 ${Math.round(frames.length / dur)}장)`;
+  renderResults(); autoSave(); $('#runHint').textContent = `실시간 추적 ${frames.length}장 (초당 약 ${Math.round(frames.length / dur)}장)`;
   if (app.me.result.ok && app.me.result.anchor != null) app.me.seek(app.me.result.anchor);
   $('#results').scrollIntoView({ block: 'start' });
 }
@@ -866,8 +935,8 @@ function shEnd(why) {
   const n = sh.log.filter(x => !x).length; let li = -1; sh.log.forEach((x, i) => { if (!x) li = i; }); const seg = sh.plan[li];
   shAbort(); beep(440, 600); $('#shState').textContent = why; $('#shProg').value = 0;
   const shPrev = (store.get('pe.last', {}).shuttle || [])[0];
-  $('#shResult').innerHTML = `<button class="primary" id="shSave">${n}회 기록 저장</button><span class="small muted" id="shMsg">${seg ? `마지막 성공 레벨 ${seg.lv}-${seg.k}` : '성공한 구간이 없습니다'}${shPrev ? ` · 지난 기록 ${shPrev.value}회 → 이번 ${n}회 (${n - shPrev.value >= 0 ? '+' : ''}${n - shPrev.value})` : ''}</span>`;
-  $('#shSave').onclick = () => saveRecord({ record: { value: n, unit: '회' }, fouls: [], noteText: seg ? `레벨 ${seg.lv}-${seg.k}` : '', msgEl: $('#shMsg') });
+  $('#shResult').innerHTML = `<button class="primary" id="shSave">저장</button><b>${n}회</b><span class="small muted" id="shMsg">${seg ? `마지막 성공 레벨 ${seg.lv}-${seg.k}` : '성공한 구간이 없습니다'}${shPrev ? ` · 지난 기록 ${shPrev.value}회 → 이번 ${n}회 (${n - shPrev.value >= 0 ? '+' : ''}${n - shPrev.value})` : ''}</span>`;
+  $('#shSave').classList.add('hidden'); if (n > 0) saveRecord({ record: { value: n, unit: '회' }, fouls: [], noteText: seg ? `레벨 ${seg.lv}-${seg.k}` : '', msgEl: document.createElement('i') });
 }
 attachPick(shCam, $('#shC')); $('#shCamBtn').onclick = shCamOpen;
 $('#shGo').onclick = shStart; $('#shMiss').onclick = shMiss;
@@ -875,13 +944,14 @@ $('#shKmh').onchange = (e) => { cfgOf('shuttle').startKmh = +e.target.value || 8
 $('#shLim').onchange = (e) => { cfgOf('shuttle').missLimit = Math.max(1, +e.target.value || 2); saveCfg(); };
 
 /* ── 기록 저장 ── */
+function autoSave() { const pl = app.me, r = pl && pl.result; if (!r || !r.ok || app.viewing || pl._savedId) return; saveRecord(r); }
 const evName = (id) => (EVENTS.find(e => e.id === id) || {}).name || id;
 function saveRecord(r) {
   const list = store.get('pe.history', []);
   const rid = Date.now(), lastAll = store.get('pe.last', {}); (lastAll[app.ev.id] = lastAll[app.ev.id] || []).unshift({ id: rid, at: new Date().toISOString(), value: r.record.value, unit: r.record.unit, metrics: (r.metrics || []).map(m => ({ key: m.key, label: m.label, value: m.value, unit: m.unit })) });
   lastAll[app.ev.id] = lastAll[app.ev.id].slice(0, 6); store.set('pe.last', lastAll); if (app.me) app.me._savedId = rid;
   list.unshift({ id: rid, ev: app.ev.id, name: app.name, at: new Date().toISOString(), value: r.record.value, unit: r.record.unit, ok: !r.fouls.some(f => f.sev === 'bad'), note: r.noteText || r.fouls.map(f => f.label).join(', '), info: !!r.noteText });
-  store.set('pe.history', list.slice(0, 200)); const msgEl = r.msgEl || $('#saveMsg'); msgEl.textContent = '저장했어요. 기록 탭에서 볼 수 있습니다.';
+  store.set('pe.history', list.slice(0, 200)); const msgEl = r.msgEl || $('#saveMsg') || document.createElement('i'); msgEl.textContent = '기록 탭에 자동으로 저장했어요.';
   if (cloud.grp) cloudSync().then((ok) => { if (ok && msgEl.isConnected) msgEl.textContent = '저장하고 소속 서버에도 올렸어요.'; });
 }
 const day = (x) => new Date(x.at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
@@ -907,6 +977,7 @@ function renderRecords() {
   const list = store.get('pe.history', []), b = bestsOf(list);
   $('#trend').innerHTML = Object.keys(b).map(k => { const rows = list.filter(x => x.ev === k && x.ok).reverse(), vals = rows.map(x => x.value), last = vals[vals.length - 1], prev = vals[vals.length - 2];
     return `<div class="card"><div class="row between"><h2>${evName(k)}</h2><span class="pill">${vals.length}회 측정</span></div><div class="rec" style="border:0;padding:0"><div class="v">${b[k].value}<small> ${b[k].unit} 최고</small></div><div class="m">최근 ${last}${b[k].unit}${prev != null ? ` (직전보다 ${last - prev >= 0 ? '+' : ''}${Math.round((last - prev) * 10) / 10})` : ''}</div></div>${spark(vals, b[k].unit)}</div>`; }).join('');
+  $('#bestTbl').innerHTML = EVENTS.map(e => { const x = b[e.id]; return `<div class="rec"><div class="m"><b>${e.ico} ${e.name}</b>${x ? day(x) + (x.info && x.note ? ' · ' + esc(x.note) : '') : '아직 기록 없음'}</div><div class="v" style="text-align:right">${x ? x.value + `<small> ${x.unit}</small>` : '<small>—</small>'}</div></div>`; }).join('');
   const host = $('#history');
   host.innerHTML = list.length ? list.slice(0, 50).map(x => recRow(x, true)).join('') : '<p class="empty">아직 저장한 기록이 없어요.</p>';
   host.querySelectorAll('[data-del]').forEach(x => x.onclick = async () => { const it = store.get('pe.history', []).find(y => y.id === +x.dataset.del); if (it && it.cid && cloud.grp) { try { await api('del', { grp: cloud.grp, name: it.name, id: it.cid, key: cloud.key }); } catch (e) { return; } } store.set('pe.history', store.get('pe.history', []).filter(y => y.id !== +x.dataset.del)); renderRecords(); });

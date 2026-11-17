@@ -3,7 +3,7 @@
   'use strict';
   const L = { NOSE: 0, SH: [11, 12], EL: [13, 14], WR: [15, 16], HIP: [23, 24], KNEE: [25, 26], ANK: [27, 28], HEEL: [29, 30], TOE: [31, 32] };
   const DEF = {
-    jump: { calibMode: 'height', lineTolCm: 3, ref: { knee: [80, 110], armBack: [30, 90], armTO: [110, 180], ext: [160, 180], hipExt: [160, 180], angle: [25, 39], speed: [2.6, 4.3], reach: [45, 100], landKnee: [30, 120] } },
+    jump: { calibMode: 'height', lineTolCm: 3, ref: { knee: [80, 110], armBack: [30, 90], armTO: [110, 180], ext: [160, 180], hipExt: [160, 180], angle: [25, 39], speed: [2.6, 4.3], tuck: [0, 100], reach: [45, 100], landKnee: [30, 120] } },
     situp: { upMode: 'elbow', upAngle: 70, elbowTol: 0.22, downAngle: 12, limitSec: 60, hipLift: true, startT: null, ref: { validRate: [90, 100], paceDrop: [-100, 20], kneeAngle: [70, 100], hipLiftN: [0, 0] } }
   };
 
@@ -62,6 +62,7 @@
     'speed:low': { p: '발이 떨어지는 순간의 속도가 느립니다. 기록을 가장 크게 좌우하는 부분입니다.', fix: '앉았다 일어나는 동작을 끊지 말고 한 번에 빠르게 이어 가세요. 팔을 앞으로 던지는 힘과 다리로 미는 힘이 같은 순간에 터져야 합니다. 연구에서는 팔을 쓰면 기록이 10~20% 늘었습니다.', ex: ['스쿼트 점프 4×5', '케틀벨 스윙 4×10', '메디신볼 전방 던지기 3×8', '연속 브로드 점프 3×4'] },
     'angle:low': { p: '도약 각도가 낮아 체공 시간이 짧습니다.', fix: '시선을 3~4m 앞 바닥이 아니라 정면 위쪽에 두고, 앞쪽 위로 뛰어오르세요.', ex: ['낮은 허들(30cm) 넘어 멀리뛰기 3×5', '박스 점프 3×5'] },
     'angle:high': { p: '도약 각도가 높아 위로만 뜨고 앞으로 나가지 못합니다.', fix: '뛰기 직전 몸 전체를 앞으로 기울여 무게중심이 발끝을 넘어간 뒤에 밀어내세요. 각도는 5° 안팎으로 달라도 거리 손해가 2cm 정도라서, 속도와 착지를 먼저 고치는 편이 낫습니다.', ex: ['전경 자세 낙하 드릴 3×6', '연속 브로드 점프 3×4'] },
+    'tuck:high': { p: '공중에서 몸을 접지 못하고 편 채로 떨어집니다.', fix: '발이 떨어진 뒤 무릎을 가슴 쪽으로 당겨 몸을 접고, 착지 직전에 다리를 앞으로 뻗으세요. 접었다 펴야 발이 멀리 나갑니다.', ex: ['턱 점프 3×6', '행잉 니 레이즈 3×10', 'V-업 3×10'] },
     'reach:low': { p: '착지 때 발을 앞으로 내밀지 못합니다. 여기서 10~20cm를 잃습니다.', fix: '공중에서 무릎을 가슴으로 당긴 뒤 착지 직전 발뒤꿈치를 앞으로 던지세요. 팔은 뒤로 내립니다.', ex: ['행잉 니 레이즈 3×10', '턱 점프 3×6', '파이크 점프 3×5', '햄스트링 스트레칭'] },
     'landKnee:high': { p: '착지가 뻣뻣합니다. 뒤로 넘어지거나 부상 위험이 있습니다.', fix: '뒤꿈치가 닿자마자 무릎을 굽혀 엉덩이를 발 쪽으로 당겨 오세요.', ex: ['박스 드랍 착지 3×6', '스쿼트 홀드 3×30초'] }
   };
@@ -146,6 +147,7 @@
     const leg = dist(J(b, 'HIP'), J(b, 'KNEE')) + dist(J(b, 'KNEE'), J(b, 'ANK'));
     const hipX = mid(P[j][23], P[j][24])[0] * dir, reach = (heelR(j) - hipX) / (median(P.map((f, i) => dist(J(i, 'HIP'), J(i, 'KNEE')) + dist(J(i, 'KNEE'), J(i, 'ANK')))) || leg) * 100;
     const le = idxAt(S, T[b] + 0.5); let landKnee = 180, il = b; for (let i = b; i <= le; i++) if (knee(i) < landKnee) { landKnee = knee(i); il = i; }
+    let tuck = 180, it = main.s; for (let i = main.s; i <= main.e; i++) if (hipA(i) < tuck) { tuck = hipA(i); it = i; }
     const R = cfg.ref;
     const metrics = [
       metric('knee', '반동 깊이 (가장 깊이 앉았을 때 무릎 각도)', knee(deep), '°', R.knee, 0, T[deep], JK),
@@ -154,6 +156,7 @@
       metric('ext', '도약 순간 무릎 펴짐', ext, '°', R.ext, 0, T[a], JK),
       metric('hipExt', '도약 순간 엉덩이 펴짐', hipExt, '°', R.hipExt, 0, T[a], JH),
       metric('angle', '도약 각도', deg(Math.atan2(vy, vx)), '°', R.angle, 0, T[main.s]),
+      metric('tuck', '공중에서 몸 접기 (엉덩이 각도, 작을수록 많이 접음)', tuck, '°', R.tuck, 0, T[it], JH),
       metric('reach', '착지 시 발 내밀기 (다리 길이 대비)', reach, '%', R.reach, 0, T[j]),
       metric('landKnee', '착지 무릎 굽힘 (최소 각도)', landKnee, '°', R.landKnee, 0, T[il], JK),
       metric('speed', '도약 속도', Math.hypot(vx, vy), 'm/s', R.speed, 2, T[main.s]),
