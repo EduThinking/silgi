@@ -113,9 +113,9 @@
     const distCm = (landX - lineX) * slopeF / ppc;
     if (hasLine) {
       const over = (toeX - lineX) * slopeF / ppc;
-      if (over > cfg.lineTolCm) fouls.push({ code: 'line', sev: 'bad', label: '구름선 밟음(넘음)', detail: `발끝이 선을 약 ${round(over)}cm 넘었습니다.` });
-      else notes.push(`구름선까지 여유 ${round(Math.max(0, -over))}cm`);
-    } else notes.push('구름선을 지정하지 않아 발끝부터 잰 거리입니다. 선 밟기 판정은 하지 않았습니다.');
+      if (over > cfg.lineTolCm) fouls.push({ code: 'line', sev: 'bad', label: '출발선 밟음(넘음)', detail: `발끝이 선을 약 ${round(over)}cm 넘었습니다.` });
+      else notes.push(`출발선까지 여유 ${round(Math.max(0, -over))}cm`);
+    } else notes.push('출발선을 지정하지 않아 발끝부터 잰 거리입니다. 선 밟기 판정은 하지 않았습니다.');
     // 이중 도약 / 준비 중 발 이동
     const w0 = idxAt(S, T[a] - 1.5);
     if (runs.some(r => r !== main && r.e < main.s && T[r.s] >= T[w0] && T[r.e] - T[r.s] >= 0.05)) fouls.push({ code: 'double', sev: 'warn', label: '이중 도약 의심', detail: '도약 직전에 발이 한 번 떴습니다. 영상을 확인하세요.' });
@@ -247,7 +247,7 @@
   /* ───────── 공통: 설정 병합 ───────── */
   DEF.sargent = { ref: { knee: [80, 110], armTO: [120, 180], ext: [160, 180], drift: [0, 20], landKnee: [70, 130] } };
   DEF.flex = { holdSec: 2, kneeMin: 165, tipOffsetCm: 6, ref: { hipAngle: [0, 55], kneeAngle: [165, 180], sway: [0, 2] } };
-  DEF.run10 = { laps: 2, startMode: 'line', ref: { lean: [30, 60], turn: [0, 1.2], hipLow: [45, 75], finDrop: [-100, 8] } };
+  DEF.run10 = { calibMode: 'height', laps: 2, startMode: 'line', ref: { lean: [30, 60], turn: [0, 1.2], hipLow: [45, 75], finDrop: [-100, 8] } };
   DEF.run20 = JSON.parse(JSON.stringify(DEF.run10));
   DEF.shuttle = { startKmh: 8.5, missLimit: 2 };
   const mk = (id, o) => Object.assign({}, DEF[id], o.cfg, { ref: Object.assign({}, DEF[id].ref, o.cfg && o.cfg.ref) });
@@ -331,7 +331,13 @@
     o = o || {}; const id = o.dist === 20 ? 'run20' : 'run10', cfg = mk(id, o), D = (o.dist || 10) * 100;
     const F = frames.filter(f => f && f.p);
     if (F.length < 10) return err('사람이 인식된 구간이 너무 짧습니다. 출발선 주변에서 전신이 나오게 찍어 주세요.');
-    if (!isFinite(o.lineX)) return err('출발선 위치를 먼저 찍어 주세요.');
+    if (!isFinite(o.lineX)) { // 간편 측정: 출발 자세의 앞발 끝을 출발선으로 본다
+      if (!o.auto) return err('출발선 위치를 먼저 찍어 주세요.');
+      const hx0 = F.map(f => (f.p[23][0] + f.p[24][0]) / 2), b0 = median(hx0.slice(0, 5)), H0 = bodyH({ p: F.map(f => f.p) }), mv = hx0.findIndex(x => Math.abs(x - b0) > 0.3 * H0);
+      if (mv < 0) return err('달리기 시작을 찾지 못했습니다. 출발 전 서 있는 자세부터 찍어 주세요.');
+      const d0 = Math.sign(hx0[mv] - b0), still = F.filter((f, i) => i < mv && Math.abs(hx0[i] - b0) < 0.05 * H0).slice(0, 15);
+      o = Object.assign({}, o, { lineX: d0 * median(still.map(f => Math.max(...[29, 30, 31, 32].map(k => f.p[k][0] * d0)))), autoLine: true });
+    }
     const H = bodyH({ p: F.map(f => f.p) }), far = isFinite(o.farX), ppc = far ? Math.abs(o.farX - o.lineX) / D : H / (o.heightCm || 170);
     const T = F.map(f => f.t), hx = F.map(f => (f.p[23][0] + f.p[24][0]) / 2), n = F.length, x0 = median(hx.slice(0, 5));
     let d = far ? Math.sign(o.farX - o.lineX) : -Math.sign(x0 - o.lineX); if (!d) d = Math.sign(hx[Math.min(n - 1, 15)] - x0) || 1;
@@ -367,7 +373,7 @@
     metrics.push(metric('react', '첫 움직임부터 출발선 통과까지', Math.max(0, tLine - tMove), '초', null, 2));
     marks.slice(1).forEach((t, k) => metrics.push(metric('split' + k, `${k + 1}번째 왕복`, t - marks[k], '초', null, 2)));
     return { ok: true, event: id, record: { value: round(tFin - tStart, 2), unit: '초', valid: !fouls.some(f => f.sev === 'bad') }, fouls, metrics, tips: tipsFor(metrics, RUN_TIPS), events, anchor: tStart,
-      notes: [cfg.startMode === 'move' ? '첫 움직임부터 출발선 복귀까지 잰 시간입니다.' : '몸통이 출발선을 넘은 순간부터 다시 넘어 돌아온 순간까지입니다.', `프레임 간격 ${round(dt * 1000)}ms, 오차 약 ±${round(dt / 2, 2)}초`, far ? '양쪽 선 사이 거리로 축척을 잡았습니다.' : '키로 축척을 잡아 턴 거리 판정은 어림값입니다.'],
+      notes: [cfg.startMode === 'move' ? '첫 움직임부터 출발선 복귀까지 잰 시간입니다.' : '몸통이 출발선을 넘은 순간부터 다시 넘어 돌아온 순간까지입니다.', `프레임 간격 ${round(dt * 1000)}ms, 오차 약 ±${round(dt / 2, 2)}초`, far ? '양쪽 선 사이 거리로 축척을 잡았습니다.' : '키로 축척을 잡아 턴 거리 판정은 어림값입니다.'].concat(o.autoLine ? ['출발선을 찍지 않아 출발 자세의 앞발 끝을 출발선으로 봤습니다.'] : []),
       vlines: [{ x: o.lineX, label: '출발선' }].concat(far ? [{ x: o.farX, label: '반대편' }] : []) };
   }
 

@@ -86,7 +86,11 @@ input:focus,select:focus{border-color:var(--accent);outline:none;box-shadow:0 0 
 .guide{margin:0;padding-left:18px;color:var(--ink2);font-size:.9rem;display:flex;flex-direction:column;gap:2px}
 .stage{background:var(--stage);border-radius:var(--r-md);overflow:hidden;display:flex;justify-content:center}
 .frame{position:relative;width:100%} .frame video{display:block;width:100%;height:auto} .frame canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:manipulation}
-.frame.pick canvas{cursor:crosshair}
+.frame.pick canvas{cursor:crosshair;touch-action:none}
+button.nudge{width:40px;height:36px;padding:0}
+.fig{width:100%;max-width:440px;height:auto;display:block}.fig text{font:600 11px var(--body);fill:var(--ink2)}
+.tip .cmp{color:var(--ink);font-size:.86rem;background:#fff;border-radius:10px;padding:6px 10px}
+.seg button:disabled{opacity:.4}
 .ctrl{display:flex;gap:6px;align-items:center;flex-wrap:wrap} .ctrl button{padding:7px 12px;font-size:.85rem}
 .ctrl select{padding:6px 8px;font-size:.85rem;border-radius:999px}
 .ctrl .time{font-variant-numeric:tabular-nums;font-size:.8rem;color:var(--ink2);margin-left:auto}
@@ -192,13 +196,20 @@ progress{width:100%;height:10px;accent-color:var(--accent)}
       <div class="record"><div class="big" style="color:var(--accent-ink)"><span id="shCount">0</span><small style="color:var(--ink3)">회</small></div><div class="small muted" style="padding-bottom:6px"><b id="shLevel" style="color:var(--ink)">레벨 1 · 1번째</b><br><span id="shSpeed"></span></div></div>
       <progress id="shProg" max="1" value="0"></progress>
       <div class="row"><button class="primary" id="shGo">시작</button><button id="shMiss" disabled>방금 구간 늦음</button></div>
+      <label class="row small" for="shMusic"><input type="checkbox" id="shMusic" checked> 리듬 음악 같이 틀기 (레벨이 오르면 빨라집니다)</label>
+      <div class="row"><button id="shCamBtn">카메라로 도달 자동 판정</button><span class="small muted" id="shCamMsg">폰을 고정해 양쪽 선이 다 보이게 두면 신호음마다 선에 닿았는지 봅니다.</span></div>
+      <div id="shCamBox" class="hidden" style="display:flex;flex-direction:column;gap:10px">
+        <div class="stage"><div class="frame pick" id="shFrame"><video id="shV" playsinline muted autoplay></video><canvas id="shC"></canvas></div></div>
+        <div id="shPick" style="display:flex;flex-direction:column;gap:8px"></div>
+        <p class="small muted">달리는 줄의 옆 15m 이상 떨어진 곳에 폰을 가로로 고정합니다. 화면에는 한 사람만 나와야 합니다. 사람이 작게 잡혀 판정이 흔들릴 수 있으니 "방금 구간 늦음" 버튼으로 고칠 수 있습니다.</p>
+      </div>
       <div class="set"><label for="shKmh">시작 속도<span class="row"><input type="number" id="shKmh" step="0.5"> km/h</span></label><label for="shLim">연속 미도달 몇 번에 종료<span class="row"><input type="number" id="shLim" step="1" min="1"> 번</span></label></div>
       <p class="small muted">20m 간격으로 선을 긋고 폰 소리를 키웁니다. 신호음이 울릴 때 선에 닿지 못했으면 "방금 구간 늦음"을 누릅니다. 레벨이 오르면 신호음이 두 번 울리고, 1분마다 0.5km/h씩 빨라집니다.</p>
       <div id="shResult" class="row"></div>
     </div>
     <div class="card" id="videoCard">
       <h2>영상 넣기</h2>
-      <ul class="guide" id="guide"></ul>
+      <ul class="guide" id="guide"></ul><div id="guideFig"></div>
       <div class="row">
         <button class="primary" id="btnLive">실시간 측정</button><button id="btnShoot">촬영 후 분석</button><button id="btnPick">찍어 둔 영상</button>
         <input type="file" id="fShoot" accept="video/*" capture="environment" class="hidden"><input type="file" id="fPick" accept="video/*" class="hidden">
@@ -239,19 +250,34 @@ const el = (h) => { const t = document.createElement('template'); t.innerHTML = 
 const fmt = (t) => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + s.toFixed(2).padStart(5, '0'); };
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-const RUN_GUIDE = ['카메라를 출발선 옆(선의 연장선)에 두고 고정합니다.', '출발선과 그 앞 3m 이상이 보이게 찍습니다. 반대편 선까지 다 들어오면 턴도 분석합니다.', '출발 전 준비 자세부터 선을 지나 도착할 때까지 끊지 않고 찍습니다.', '시간 정확도는 프레임 수에 달려 있습니다. 60fps로 찍으세요.'];
+const RUN_GUIDE = ['폰을 가로로 눕혀 출발선을 옆으로 늘인 자리(선이 세로로 보이는 곳)에 허리 높이로 고정합니다. 달리는 줄에서 5m 이상 떨어집니다.', '출발선과 그 앞 3m 이상이 보이게 찍습니다. 반대편 선까지 다 들어오면 턴도 분석합니다.', '출발 전 준비 자세부터 선을 지나 도착할 때까지 끊지 않고 찍습니다.', '시간 정확도는 프레임 수에 달려 있습니다. 60fps로 찍으세요.'];
+const FIGS = {
+  jump: `<svg class="fig" viewBox="0 0 330 178" role="img" aria-label="위에서 본 촬영 위치. 카메라는 출발선에서 1.5m 앞 지점의 옆 4~5m에 둔다."><text x="6" y="12">위에서 본 모습</text>
+    <line x1="20" y1="52" x2="310" y2="52" stroke="#8C93AD" stroke-width="2" stroke-dasharray="5 5"/><text x="250" y="70">뛰는 방향 →</text>
+    <line x1="60" y1="36" x2="60" y2="68" stroke="#3D5BFF" stroke-width="4"/><text x="38" y="30" style="fill:#2238C9">① 출발선</text>
+    <line x1="196" y1="44" x2="196" y2="60" stroke="#D9A92F" stroke-width="4"/><text x="170" y="30" style="fill:#9A6500">② 2m 표시</text>
+    <line x1="60" y1="76" x2="196" y2="76" stroke="#D9A92F" stroke-width="1.5"/><text x="112" y="90">2m</text>
+    <path d="M162 138 L24 56 M162 138 L300 56" stroke="#8C93AD" stroke-width="1" fill="none"/><line x1="162" y1="136" x2="162" y2="56" stroke="#8C93AD" stroke-width="1" stroke-dasharray="3 3"/><text x="168" y="112">4~5m</text>
+    <rect x="146" y="138" width="32" height="20" rx="5" fill="#3D5BFF"/><text x="184" y="152">카메라 (허리 높이, 가로)</text><text x="6" y="174">①과 ②는 수험생이 뛰는 줄 바로 옆 바닥에 표시합니다.</text></svg>`,
+  run: `<svg class="fig" viewBox="0 0 330 170" role="img" aria-label="위에서 본 촬영 위치. 카메라는 출발선을 옆으로 늘인 자리에 둔다."><text x="6" y="12">위에서 본 모습</text>
+    <line x1="30" y1="50" x2="310" y2="50" stroke="#8C93AD" stroke-width="2" stroke-dasharray="5 5"/><text x="130" y="42">달리는 줄</text>
+    <line x1="70" y1="30" x2="70" y2="70" stroke="#3D5BFF" stroke-width="4"/><text x="46" y="24" style="fill:#2238C9">① 출발선</text>
+    <line x1="290" y1="30" x2="290" y2="70" stroke="#D9A92F" stroke-width="4"/><text x="236" y="24" style="fill:#9A6500">② 반대편 선</text>
+    <line x1="70" y1="70" x2="70" y2="128" stroke="#3D5BFF" stroke-width="1" stroke-dasharray="3 3"/><text x="76" y="104">5m 이상</text>
+    <rect x="54" y="128" width="32" height="20" rx="5" fill="#3D5BFF"/><text x="92" y="142">카메라 (출발선을 옆으로 늘인 자리)</text><text x="6" y="166">반대편 선까지 화면에 다 들어오면 턴도 분석합니다.</text></svg>`
+};
 const EVENTS = [
-  { id: 'jump', ico: '🤾', name: '제자리멀리뛰기', what: '거리, 구름선·착지 파울, 반동과 팔 스윙', on: true, fps: 30, fn: 'analyzeJump', dec: 1,
-    guide: ['카메라를 뛰는 방향의 옆(직각)에 두고 삼각대나 벽에 고정합니다.', '구름선부터 착지 지점 너머까지 한 화면에 담습니다. 발이 잘리면 거리를 못 잽니다.', '구름선에서 2m 되는 바닥에 테이프를 붙여 두면 거리 기준으로 씁니다.', '준비 자세부터 착지 후 1초까지 찍습니다. 60fps면 더 정확합니다.'] },
+  { id: 'jump', ico: '🤾', name: '제자리멀리뛰기', what: '거리, 출발선·착지 파울, 반동과 팔 스윙', on: true, fps: 30, fn: 'analyzeJump', dec: 1,
+    fig: 'jump', guide: ['폰을 가로로 눕혀 삼각대나 의자에 고정합니다. 높이는 허리쯤(약 1m)입니다.', '뛰는 방향의 정확히 옆에서 찍습니다. 출발선에서 뛰는 쪽으로 1.5m 간 지점의 옆, 4~5m 떨어진 자리가 좋습니다.', '광각(0.5배)은 화면이 휘어 거리가 틀어집니다. 기본 1배로 찍습니다.', '출발선부터 착지 지점 너머까지 한 화면에 담습니다. 발이 잘리면 거리를 못 잽니다.', '출발선에서 2m 되는 바닥에 테이프를 붙여 두면 거리 기준으로 씁니다.', '준비 자세부터 착지 후 1초까지 찍습니다. 60fps면 더 정확합니다.'] },
   { id: 'situp', ico: '💪', name: '윗몸일으키기', what: '기준 충족한 횟수만 카운트, 무효 사유, 페이스', on: true, fps: 15, fn: 'analyzeSitup', dec: 0,
-    guide: ['카메라를 몸 옆, 매트 높이쯤에 고정합니다.', '머리부터 발끝까지 화면에 담습니다.', '발을 잡아 주는 사람이 무릎과 엉덩이를 가리지 않게 합니다.', '시작 전 누운 자세부터 끝날 때까지 끊지 않고 찍습니다.'] },
-  { id: 'run10', ico: '🏃', name: '10m 왕복달리기', what: '출발선 통과~복귀 시간, 스타트, 턴', on: true, fps: 30, fn: 'analyzeRun', dist: 10, dec: 2, lower: true, guide: RUN_GUIDE },
-  { id: 'run20', ico: '⚡', name: '20m 왕복달리기', what: '구간 시간, 스타트, 턴', on: true, fps: 30, fn: 'analyzeRun', dist: 20, dec: 2, lower: true, guide: RUN_GUIDE },
+    guide: ['폰을 가로로 눕혀 몸 옆 3m쯤, 바닥에서 30~50cm 높이에 고정합니다.', '머리부터 발끝까지 화면에 담습니다.', '발을 잡아 주는 사람이 무릎과 엉덩이를 가리지 않게 합니다.', '시작 전 누운 자세부터 끝날 때까지 끊지 않고 찍습니다.'] },
+  { id: 'run10', ico: '🏃', name: '10m 왕복달리기', what: '출발선 통과~복귀 시간, 스타트, 턴', on: true, fps: 30, fn: 'analyzeRun', dist: 10, dec: 2, lower: true, fig: 'run', guide: RUN_GUIDE },
+  { id: 'run20', ico: '⚡', name: '20m 왕복달리기', what: '구간 시간, 스타트, 턴', on: true, fps: 30, fn: 'analyzeRun', dist: 20, dec: 2, lower: true, fig: 'run', guide: RUN_GUIDE },
   { id: 'shuttle', ico: '🔁', name: '셔틀런', what: '신호음, 레벨·횟수, 탈락 판정', on: true, custom: true, dec: 0, guide: [] },
   { id: 'flex', ico: '🧘', name: '유연성 (좌전굴)', what: '도달 거리, 무릎 굽힘·반동', on: true, fps: 30, fn: 'analyzeFlex', dec: 1,
-    guide: ['카메라를 몸 옆, 바닥 높이쯤에 고정합니다.', '엉덩이부터 발끝, 뻗은 손끝까지 화면에 담습니다.', '끝까지 숙인 자세에서 2초 이상 멈춥니다.', '무릎이 가려지지 않게 합니다.'] },
+    guide: ['폰을 가로로 눕혀 몸 옆 2~3m, 바닥에서 30cm쯤 높이에 고정합니다.', '엉덩이부터 발끝, 뻗은 손끝까지 화면에 담습니다.', '끝까지 숙인 자세에서 2초 이상 멈춥니다.', '무릎이 가려지지 않게 합니다.'] },
   { id: 'sargent', ico: '🚀', name: '서전트 점프', what: '점프 높이, 반동, 팔 스윙', on: true, fps: 30, fn: 'analyzeSargent', dec: 1,
-    guide: ['카메라를 옆이나 정면 3~4m 거리에 고정합니다.', '머리 위 여유를 넉넉히 두고 발끝까지 담습니다.', '바로 선 자세로 1초 서 있다가 뜁니다. 서 있는 높이가 기준입니다.', '착지 후 1초까지 찍습니다.'] }
+    guide: ['폰을 세로로 세워 몸 옆 3~4m 거리, 허리 높이에 고정합니다.', '머리 위 여유를 넉넉히 두고 발끝까지 담습니다.', '바로 선 자세로 1초 서 있다가 뜁니다. 서 있는 높이가 기준입니다.', '착지 후 1초까지 찍습니다.'] }
 ];
 const store = {
   get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } },
@@ -260,7 +286,7 @@ const store = {
 const app = { ev: null, me: null, ref: null, cfg: store.get('pe.cfg', {}), name: store.get('pe.name', '') };
 const cfgInit = new Set();
 const cfgOf = (id) => cfgInit.has(id) ? app.cfg[id] : (cfgInit.add(id), app.cfg[id] = Object.assign({ calibMode: 'line', markCm: 200, heightCm: 170, refHeightCm: 175, fps: null }, JSON.parse(JSON.stringify(Analysis.DEF[id])), app.cfg[id]));
-const needPts = () => { const c = cfgOf(app.ev.id); return app.ev.id === 'jump' ? (c.calibMode === 'line' ? [2, 2] : [0, 0]) : app.ev.dist ? [1, 2] : [0, 0]; };
+const needPts = () => { const c = cfgOf(app.ev.id); return c.calibMode !== 'line' ? [0, 0] : app.ev.id === 'jump' ? [2, 2] : app.ev.dist ? [1, 2] : [0, 0]; };
 const saveCfg = () => store.set('pe.cfg', app.cfg);
 
 /* ── 포즈 엔진 ── */
@@ -307,12 +333,7 @@ class Player {
     ['seeked', 'timeupdate', 'loadeddata'].forEach(n => this.v.addEventListener(n, () => this.draw()));
     this.v.addEventListener('play', () => { $('[data-a=play]', host).textContent = '멈춤'; const loop = () => { this.draw(); if (!this.v.paused) requestAnimationFrame(loop); }; loop(); });
     this.v.addEventListener('pause', () => { $('[data-a=play]', host).textContent = '재생'; });
-    this.c.addEventListener('click', (e) => {
-      if (!this.picking) return; const r = this.c.getBoundingClientRect();
-      this.pts.push({ x: (e.clientX - r.left) / r.width * this.W, y: (e.clientY - r.top) / r.height * this.H });
-      if (this.pts.length >= this.picking) { this.picking = 0; this.frameEl.classList.remove('pick'); }
-      this.draw(); this.onPick && this.onPick();
-    });
+    attachPick(this, this.c);
   }
   load(file, durHint) {
     return new Promise((res, rej) => {
@@ -332,7 +353,7 @@ class Player {
   toggle() { if (this.v.paused) this.v.play().catch(() => { }); else this.v.pause(); }
   step(d) { this.v.pause(); this.v.currentTime = Math.max(0, Math.min(this.dur, this.v.currentTime + d / (this.fps || 30))); }
   seek(t) { this.v.pause(); this.v.currentTime = Math.max(0, Math.min(this.dur, t)); }
-  startPick(n) { this.pts = []; this.picking = n; this.frameEl.classList.add('pick'); this.v.pause(); this.draw(); }
+  startPick(n) { this.picking = n; this.act = Math.min(this.act || 0, this.pts.length); this.frameEl.classList.add('pick'); this.v.pause(); this.draw(); }
   setMarkers(ev) {
     this.tl.querySelectorAll('.mk').forEach(m => m.remove());
     ev.forEach(e => { const b = el(`<button class="mk ${e.bad ? 'bad' : ''}" title="${fmt(e.t)}">${esc(e.label)}</button>`); b.style.left = (e.t / this.dur * 100) + '%'; b.onclick = () => this.seek(e.t); this.tl.appendChild(b); });
@@ -349,23 +370,55 @@ class Player {
     this.range.value = t; this.timeEl.textContent = fmt(t) + ' / ' + fmt(this.dur || 0); this.onTime && this.onTime(t);
     const lw = Math.max(2, this.c.width / 320);
     const fr = this.frameAt(t);
+    drawGhost(this, g, fr, t);
     if (fr && fr.p) {
       g.lineWidth = lw; g.lineCap = 'round'; g.strokeStyle = 'rgba(255,255,255,.9)';
       BONES.forEach(([a, b]) => { const p = fr.p[a], q = fr.p[b]; if (p[2] < 0.3 || q[2] < 0.3) return; g.beginPath(); g.moveTo(p[0] * s, p[1] * s); g.lineTo(q[0] * s, q[1] * s); g.stroke(); });
       g.fillStyle = '#FFD164'; [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32].forEach(i => { const p = fr.p[i]; if (p[2] < 0.3) return; g.beginPath(); g.arc(p[0] * s, p[1] * s, lw * 1.3, 0, 7); g.fill(); });
     }
     g.font = `700 ${Math.round(lw * 6.5)}px sans-serif`; g.textBaseline = 'bottom';
-    this.pts.forEach((p, i) => { g.strokeStyle = '#FFD164'; g.lineWidth = lw; g.beginPath(); g.arc(p.x * s, p.y * s, lw * 3, 0, 7); g.stroke(); g.beginPath(); g.moveTo(p.x * s, p.y * s - lw * 6); g.lineTo(p.x * s, p.y * s + lw * 6); g.stroke(); g.fillStyle = '#FFD164'; g.fillText(i ? '②' : '①', p.x * s + lw * 4, p.y * s - lw * 4); });
+    this.pts.forEach((p, i) => { g.strokeStyle = '#FFD164'; g.lineWidth = this.picking && i === this.act ? lw * 1.8 : lw; g.beginPath(); g.arc(p.x * s, p.y * s, lw * 3, 0, 7); g.stroke(); g.beginPath(); g.moveTo(p.x * s, p.y * s - lw * 6); g.lineTo(p.x * s, p.y * s + lw * 6); g.stroke(); g.fillStyle = '#FFD164'; g.fillText(i ? '②' : '①', p.x * s + lw * 4, p.y * s - lw * 4); });
     const r = this.result;
-    if (r && r.ok && r.geom) { // 제멀: 구름선~착지 거리선
+    if (r && r.ok && r.geom) { // 제멀: 출발선~착지 거리선
       const G = r.geom, gy = (x) => G.k * x - G.base, x1 = G.lineX, x2 = G.landX;
       g.strokeStyle = '#FFD164'; g.lineWidth = lw * 1.2; g.beginPath(); g.moveTo(x1 * s, gy(x1) * s); g.lineTo(x2 * s, gy(x2) * s); g.stroke();
       [x1, x2].forEach(x => { g.beginPath(); g.moveTo(x * s, gy(x) * s - lw * 7); g.lineTo(x * s, gy(x) * s + lw * 3); g.stroke(); });
       const txt = r.record.value.toFixed(1) + ' cm', tx = (x1 + x2) / 2 * s, ty = gy((x1 + x2) / 2) * s - lw * 3, w = g.measureText(txt).width;
       g.fillStyle = 'rgba(14,19,32,.8)'; g.fillRect(tx - w / 2 - 6, ty - lw * 8, w + 12, lw * 9); g.fillStyle = '#FFD164'; g.fillText(txt, tx - w / 2, ty);
     }
+    drawLoupe(g, this.v, this, this.c.width);
     if (r && r.ok && r.vlines) r.vlines.forEach(v => { g.strokeStyle = g.fillStyle = '#FFD164'; g.lineWidth = lw; g.setLineDash([lw * 3, lw * 3]); g.beginPath(); g.moveTo(v.x * s, 0); g.lineTo(v.x * s, this.c.height); g.stroke(); g.setLineDash([]); g.textBaseline = 'top'; g.fillText(v.label, v.x * s + lw * 2, lw * 2); g.textBaseline = 'bottom'; });
   }
+}
+
+/* ── 기준점 찍기: 누르거나 끌면 지금 고른 점만 움직인다 ── */
+function attachPick(o, c) {
+  let down = false;
+  const set = (e) => { const r = c.getBoundingClientRect(), i = Math.min(o.act || 0, o.pts.length); o.pts[i] = { x: Math.max(0, Math.min(o.W, (e.clientX - r.left) / r.width * o.W)), y: Math.max(0, Math.min(o.H, (e.clientY - r.top) / r.height * o.H)) }; o.act = i; o.adjT = performance.now(); o.draw(); };
+  c.addEventListener('pointerdown', (e) => { if (!o.picking) return; e.preventDefault(); down = true; try { c.setPointerCapture(e.pointerId); } catch (x) { } set(e); });
+  c.addEventListener('pointermove', (e) => { if (down) set(e); });
+  const up = () => { if (!down) return; down = false; setTimeout(() => o.draw(), 2600); o.onPick && o.onPick(); };
+  c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
+}
+function drawLoupe(g, vid, o, cw) { // 손가락에 가려지는 자리를 3배로 보여 준다
+  const p = o.pts[o.act]; if (!o.picking || !p || performance.now() - (o.adjT || 0) > 2500) return;
+  const s = o.sc, R = Math.round(cw * 0.17), cx = p.x * s < cw / 2 ? cw - R - 8 : R + 8, cy = R + 8, sw = 2 * R / s / 3;
+  g.save(); g.beginPath(); g.arc(cx, cy, R, 0, 7); g.clip(); g.fillStyle = '#000'; g.fillRect(cx - R, cy - R, 2 * R, 2 * R);
+  try { g.drawImage(vid, p.x - sw / 2, p.y - sw / 2, sw, sw, cx - R, cy - R, 2 * R, 2 * R); } catch (e) { }
+  g.restore(); g.strokeStyle = '#FFD164'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.moveTo(cx - R, cy); g.lineTo(cx + R, cy); g.moveTo(cx, cy - R); g.lineTo(cx, cy + R); g.stroke();
+}
+function pickUI(pl, labels, helps) {
+  const a = Math.min(pl.act || 0, pl.pts.length);
+  return `<div class="seg" role="group" aria-label="찍을 지점">${labels.map((l, i) => `<button data-act="${i}" aria-pressed="${a === i}" ${i > pl.pts.length ? 'disabled' : ''}>${i ? '②' : '①'} ${l}${pl.pts[i] ? ' ✓' : ''}</button>`).join('')}</div>
+    <p class="small">${helps[a]}</p>
+    <div class="row"><span class="small muted">조금씩 옮기기</span>${[['◀', -1, 0], ['▶', 1, 0], ['▲', 0, -1], ['▼', 0, 1]].map(n => `<button class="nudge" data-nx="${n[1]}" data-ny="${n[2]}" aria-label="${n[0]}">${n[0]}</button>`).join('')}<button class="ghost" id="clrPts">모두 지우기</button></div>
+    <p class="small muted">영상을 누르면 지금 고른 점만 그 자리로 옮겨집니다. 누른 채 끌면 따라오고, 구석의 확대경으로 자리를 확인할 수 있습니다.</p>`;
+}
+function bindPick(pl, host, re) {
+  pl.onPick = re || (() => { renderSetup(); if (pl === live) liveHint(); else recompute(); });
+  host.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { if (!pl.picking) pl.startPick(2); pl.act = +b.dataset.act; pl.onPick(); });
+  host.querySelectorAll('.nudge').forEach(b => b.onclick = () => { const q = pl.pts[Math.min(pl.act || 0, pl.pts.length)]; if (!q) return; const st = Math.max(1, pl.W / 640); q.x += +b.dataset.nx * st; q.y += +b.dataset.ny * st; pl.adjT = performance.now(); pl.draw(); setTimeout(() => pl.draw(), 2600); pl.onPick(); });
+  const c = host.querySelector('#clrPts'); if (c) c.onclick = () => { pl.pts = []; pl.act = 0; pl.draw(); pl.onPick(); };
 }
 
 /* ── 프레임별 관절 추출 ── */
@@ -392,7 +445,7 @@ async function extract(pl, fps, onProg) {
 function optsFor(pl, isRef) {
   const c = cfgOf(app.ev.id), id = app.ev.id, h = isRef ? c.refHeightCm : c.heightCm;
   if (id === 'situp') return { cfg: Object.assign({}, c, isRef ? { startT: null } : pl.liveStart ? { startT: 0 } : {}) };
-  if (app.ev.dist) return { cfg: c, heightCm: h, dist: app.ev.dist, lineX: pl.pts[0] ? pl.pts[0].x : NaN, farX: pl.pts[1] ? pl.pts[1].x : NaN };
+  if (app.ev.dist) { const ln = c.calibMode === 'line'; return { cfg: c, heightCm: h, dist: app.ev.dist, auto: !ln, lineX: ln && pl.pts[0] ? pl.pts[0].x : NaN, farX: ln && pl.pts[1] ? pl.pts[1].x : NaN }; }
   if (id === 'jump' && !isRef && c.calibMode === 'line' && pl.pts.length === 2) {
     const [p, q] = pl.pts, d = Math.hypot(q.x - p.x, q.y - p.y);
     return { cfg: c, pxPerCm: d / c.markCm, line: { x: p.x }, ground: { k: (q.y - p.y) / ((q.x - p.x) || 1e-9) } };
@@ -407,7 +460,7 @@ function compute(pl, isRef) {
 async function run() {
   const pl = app.me, c = cfgOf(app.ev.id), errEl = $('#runErr'), prog = $('#prog');
   errEl.classList.add('hidden');
-  if (pl.pts.length < needPts()[0]) { errEl.textContent = app.ev.dist ? '영상 위에서 출발선 위치를 먼저 찍어 주세요.' : '영상 위에서 구름선과 기준점 두 곳을 먼저 찍어 주세요. 표시가 없으면 "키로 어림"을 고르세요.'; errEl.classList.remove('hidden'); return; }
+  if (pl.pts.length < needPts()[0]) { errEl.textContent = app.ev.dist ? '영상 위에서 출발선 위치를 먼저 찍어 주세요.' : '영상 위에서 출발선과 기준점 두 곳을 먼저 찍어 주세요. 표시가 없으면 "키로 어림"을 고르세요.'; errEl.classList.remove('hidden'); return; }
   $('#btnRun').disabled = true; prog.classList.remove('hidden'); prog.value = 0;
   try {
     await extract(pl, c.fps || app.ev.fps, (v) => { prog.value = v; $('#runHint').textContent = '관절 추적 중 ' + Math.round(v * 100) + '%'; });
@@ -418,6 +471,28 @@ async function run() {
 }
 function recompute() { saveCfg(); if (app.me && app.me.frames.length) { compute(app.me, false); if (app.ref) compute(app.ref, true); renderResults(); } }
 
+/* ── 기준 모델(잘하는 사람)과 관절선 겹치기 ── */
+const models = () => (app.cfg._models = app.cfg._models || {});
+const curModel = () => (app.model && app.model.ev === app.ev.id ? app.model : models()[app.ev.id]) || null;
+const faceOf = (S, a) => { let v = 0; S.p.forEach((f, i) => { if (Math.abs(S.t[i] - a) < 0.7) v += (f[31][0] - f[29][0]) + (f[32][0] - f[30][0]); }); return Math.sign(v) || 1; };
+function packModel(pl, name) {
+  const r = pl.result, S = Analysis.prep(pl.frames), a = r.anchor, idx = []; S.t.forEach((t, i) => { if (t >= a - 3 && t <= a + 6) idx.push(i); });
+  const st = Math.max(1, Math.ceil(idx.length / 150)), use = idx.filter((_, k) => k % st === 0);
+  return { ev: app.ev.id, name, at: Date.now(), anchor: a, H: Math.round(Analysis.bodyH(S)), face: faceOf(S, a), value: r.record.value, unit: r.record.unit, metrics: r.metrics.map(m => ({ key: m.key, value: m.value })),
+    t: use.map(i => +S.t[i].toFixed(3)), p: use.map(i => S.p[i].map(q => [Math.round(q[0]), Math.round(q[1]), q[2] >= 0.3 ? 1 : 0])) };
+}
+function drawGhost(pl, g, fr, t) {
+  const M = pl.ghost, r = pl.result; if (!M || !r || !r.ok || !fr || !fr.p) return;
+  if (!pl._gi || pl._gi.n !== pl.frames.length || pl._gi.a !== r.anchor) { const S = Analysis.prep(pl.frames), a0 = pl.frameAt(r.anchor); pl._gi = { n: pl.frames.length, a: r.anchor, H: Analysis.bodyH(S), face: faceOf(S, r.anchor), o0: a0 && a0.p ? a0.p : fr.p }; }
+  const gi = pl._gi, tr = M.anchor + (t - r.anchor); let k = 0, k0 = 0;
+  for (let i = 1; i < M.t.length; i++) { if (Math.abs(M.t[i] - tr) < Math.abs(M.t[k] - tr)) k = i; if (Math.abs(M.t[i] - M.anchor) < Math.abs(M.t[k0] - M.anchor)) k0 = i; }
+  if (Math.abs(M.t[k] - tr) > 0.3) return;
+  const hc = (f) => [(f[23][0] + f[24][0]) / 2, (f[23][1] + f[24][1]) / 2], q = M.p[k], move = pl.ghostMode === 'move', r0 = hc(move ? M.p[k0] : q), o0 = hc(move ? gi.o0 : fr.p), z = gi.H / M.H, mir = gi.face * M.face, s = pl.sc;
+  const X = (pt) => [(o0[0] + (pt[0] - r0[0]) * z * mir) * s, (o0[1] + (pt[1] - r0[1]) * z) * s];
+  g.lineWidth = Math.max(2, pl.c.width / 260); g.lineCap = 'round'; g.strokeStyle = 'rgba(64,201,255,.95)';
+  BONES.forEach(([a, b]) => { if (!q[a][2] || !q[b][2]) return; const A = X(q[a]), B = X(q[b]); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke(); });
+}
+
 /* ── 설정 패널 ── */
 function numField(id, label, key, step, sfx) { const c = cfgOf(app.ev.id); return `<label for="${id}">${label}<span class="row"><input type="number" id="${id}" data-k="${key}" step="${step}" value="${c[key]}"> ${sfx || ''}</span></label>`; }
 function renderSetup() {
@@ -425,16 +500,13 @@ function renderSetup() {
   if (app.ev.id === 'jump') {
     const line = c.calibMode === 'line';
     host.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">
-      <div class="seg" role="group" aria-label="거리 기준"><button data-mode="line" aria-pressed="${line}">구름선·기준점 찍기 (정확)</button><button data-mode="height" aria-pressed="${!line}">키로 어림 (간편)</button></div>
-      ${line ? `<div class="step ${pl.pts.length > 0 ? 'done' : ''}"><i>1</i><span>영상에서 <b>구름선 앞끝이 바닥과 만나는 곳</b>을 누릅니다.</span></div>
-        <div class="step ${pl.pts.length > 1 ? 'done' : ''}"><i>2</i><span>뛰는 방향으로 구름선에서 <input type="number" id="markCm" data-k="markCm" step="10" value="${c.markCm}" aria-label="기준점까지 거리"> cm 떨어진 <b>바닥 표시</b>를 누릅니다.</span></div>
-        <div class="row"><button id="rePick">${pl.pts.length ? '다시 찍기' : '찍기 시작'}</button><span class="small muted">${pl.picking ? '영상을 눌러 주세요 (' + (pl.pts.length + 1) + '/2)' : pl.pts.length === 2 ? '기준 완료. 구름선 밟기도 판정합니다.' : ''}</span></div>`
-        : `<div class="set">${numField('heightCm', '수험생 키', 'heightCm', 1, 'cm')}</div><p class="small muted">몸 길이로 화면 축척을 어림합니다. 오차가 5% 안팎이고 구름선 밟기는 판정하지 못합니다.</p>`}
-      <div class="set">${numField('lineTolCm', '구름선 허용 오차', 'lineTolCm', 1, 'cm')}
+      <div class="seg" role="group" aria-label="거리 기준"><button data-mode="line" aria-pressed="${line}">출발선·기준점 찍기 (정확)</button><button data-mode="height" aria-pressed="${!line}">키로 어림 (간편)</button></div>
+      ${line ? pickUI(pl, ['출발선', c.markCm + 'cm 표시'], ['<b>① 출발선</b>: 선에서 <b>뛰는 쪽 가장자리</b>가 바닥에 닿는 곳을 찍습니다. 수험생 발끝 바로 앞, 발과 같은 줄이어야 합니다. 자리가 맞으면 위의 ②를 누르세요.', '<b>② 거리 표시</b>: 출발선에서 뛰는 방향으로 잰 테이프 끝이 바닥에 닿는 곳을 찍습니다. 수험생이 뛰는 줄 위에 있어야 거리가 정확합니다.']) + `<div class="set">${numField('markCm', '①에서 ②까지 실제 거리', 'markCm', 10, 'cm')}</div>`
+        : `<div class="set">${numField('heightCm', '수험생 키', 'heightCm', 1, 'cm')}</div><p class="small muted">몸 길이로 화면 축척을 어림합니다. 오차가 5% 안팎이고 출발선 밟기는 판정하지 못합니다.</p>`}
+      <div class="set">${numField('lineTolCm', '출발선 허용 오차', 'lineTolCm', 1, 'cm')}
         <label for="fps">추적 정밀도<select id="fps" data-k="fps"><option value="30">초당 30장 (기본)</option><option value="60">초당 60장 (60fps 영상)</option></select></label></div></div>`;
-    host.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { c.calibMode = b.dataset.mode; saveCfg(); renderSetup(); recompute(); });
-    const rp = $('#rePick', host); if (rp) rp.onclick = () => { pl.startPick(2); renderSetup(); if (pl === live) liveHint(); };
-    pl.onPick = () => { renderSetup(); if (pl.pts.length === 2) recompute(); };
+    host.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { c.calibMode = b.dataset.mode; saveCfg(); if (needPts()[1]) pl.startPick(2); else { pl.picking = 0; pl.draw(); } renderSetup(); recompute(); if (pl === live) liveHint(); });
+    bindPick(pl, host);
   } else if (app.ev.id === 'situp') {
     host.innerHTML = `<div class="set">
       <label for="upMode">올라올 때 인정 기준<select id="upMode" data-k="upMode"><option value="elbow">팔꿈치가 무릎(허벅지 위쪽)에 닿음</option><option value="angle">상체 각도</option></select></label>
@@ -452,16 +524,15 @@ function renderSetup() {
   } else {
     const run = !!app.ev.dist, f = app.ev.id === 'flex';
     host.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">
-      ${run ? `<div class="step ${pl.pts.length > 0 ? 'done' : ''}"><i>1</i><span>영상에서 <b>출발선이 바닥과 만나는 곳</b>을 누릅니다.</span></div>
-        <div class="step ${pl.pts.length > 1 ? 'done' : ''}"><i>2</i><span>반대편 선(${app.ev.dist}m)이 화면에 보이면 그곳도 누릅니다. 안 보이면 건너뜁니다.</span></div>
-        <div class="row"><button id="rePick">${pl.pts.length ? '다시 찍기' : '찍기 시작'}</button><span class="small muted">${pl.pts.length === 2 ? '양쪽 선 기준으로 잽니다.' : pl.pts.length === 1 ? '출발선만 찍었습니다. 이대로 분석할 수 있어요.' : pl.picking ? '영상을 눌러 주세요' : ''}</span></div>` : ''}
+      ${run ? `<div class="seg" role="group" aria-label="측정 방식"><button data-mode="height" aria-pressed="${c.calibMode !== 'line'}">키로 간편 측정</button><button data-mode="line" aria-pressed="${c.calibMode === 'line'}">출발선 찍기 (정확)</button></div>` : ''}
+      ${run && c.calibMode !== 'line' ? '<p class="small">아무것도 찍지 않아도 됩니다. 출발 자세에서 앞발 끝이 놓인 자리를 출발선으로 보고, 입력한 키로 거리를 어림합니다. 발끝을 출발선에 딱 맞추고 서서 출발하세요.</p>' : ''}
+      ${run && c.calibMode === 'line' ? pickUI(pl, ['출발선', '반대편 선 (보이면)'], ['<b>① 출발선</b>: 수험생이 달리는 줄에서 출발선이 바닥에 닿는 곳을 찍습니다. 이 점을 지나는 세로선이 시간 측정 기준입니다.', `<b>② 반대편 선</b>: ${app.ev.dist}m 선이 화면에 보일 때만 찍습니다. 안 보이면 ①만 찍고 분석하세요.`]) : ''}
       <div class="set">${numField('heightCm', '수험생 키', 'heightCm', 1, 'cm')}
         ${run ? numField('laps', '왕복 횟수', 'laps', 1, '회') + `<label for="startMode">시간 시작 기준<select id="startMode" data-k="startMode"><option value="line">출발선을 넘는 순간</option><option value="move">첫 움직임</option></select></label>` : ''}
         ${f ? numField('holdSec', '유지 시간', 'holdSec', 0.5, '초') + numField('kneeMin', '무릎 굽힘 기준', 'kneeMin', 1, '° 이상') + numField('tipOffsetCm', '손끝 보정', 'tipOffsetCm', 1, 'cm') : ''}
         <label for="fps">추적 정밀도<select id="fps" data-k="fps"><option value="30">초당 30장 (기본)</option><option value="60">초당 60장 (60fps 영상)</option></select></label></div>
       ${run ? '<p class="small muted">왕복 횟수는 대학마다 다릅니다. 요강에 맞춰 바꾸세요.</p>' : ''}</div>`;
-    const rp = $('#rePick', host); if (rp) rp.onclick = () => { pl.startPick(2); renderSetup(); if (pl === live) liveHint(); };
-    pl.onPick = () => { renderSetup(); recompute(); };
+    if (run) { bindPick(pl, host); host.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { c.calibMode = b.dataset.mode; saveCfg(); if (needPts()[1]) pl.startPick(2); else { pl.picking = 0; pl.draw(); } renderSetup(); recompute(); if (pl === live) liveHint(); }); }
   }
   host.querySelectorAll('[data-k]').forEach(i => {
     if (i.tagName === 'SELECT') i.value = String(c[i.dataset.k] ?? app.ev.fps);
@@ -479,12 +550,13 @@ function gauge(m, rv) {
 function renderResults() {
   const host = $('#results'), r = app.me.result; host.classList.remove('hidden'); setStep(3);
   if (!r.ok) { host.innerHTML = `<div class="card"><h2>분석하지 못했습니다</h2><p class="err">${esc(r.error)}</p></div>`; return; }
-  const rr = app.ref && app.ref.result && app.ref.result.ok ? app.ref.result : null, rmap = {}; if (rr) rr.metrics.forEach(m => rmap[m.key] = m.value);
+  const rr = app.ref && app.ref.result && app.ref.result.ok ? app.ref.result : null, M = curModel(), rmap = {}; if (M) M.metrics.forEach(m => rmap[m.key] = m.value);
+  app.me.ghost = app.ghostOn && M ? M : null; app.me.ghostMode = app.ghostMode || 'pose'; app.me.draw();
   const bad = r.fouls.some(f => f.sev === 'bad'), isS = r.event === 'situp', fv = (x) => x.toFixed(app.ev.dec);
   const status = !isS ? (bad ? ['bad', '파울'] : r.fouls.length ? ['warn', '기록 인정 · 확인 필요'] : ['good', '기록 인정']) : (r.attempts === r.record.value ? ['good', '전부 인정'] : ['warn', `${r.attempts - r.record.value}회 무효`]);
   let h = `<div class="card hero"><div class="row between"><h2>기록</h2><span class="pill ${status[0]}">${status[1]}</span></div>
     <div class="record"><div class="big">${fv(r.record.value)}<small>${r.record.unit}</small></div>
-    <div class="small muted" style="display:flex;flex-direction:column;gap:2px;padding-bottom:6px">${r.notes.map(n => `<span>${esc(n)}</span>`).join('')}${rr ? `<span>비교 영상: ${fv(rr.record.value)}${rr.record.unit}</span>` : ''}</div></div>
+    <div class="small muted" style="display:flex;flex-direction:column;gap:2px;padding-bottom:6px">${r.notes.map(n => `<span>${esc(n)}</span>`).join('')}${M ? `<span>기준 모델(${esc(M.name)}): ${fv(M.value)}${M.unit}</span>` : ''}</div></div>
     ${r.fouls.length ? `<div class="fouls">${r.fouls.map(f => `<div class="foul ${f.sev}"><b>${esc(f.label)}</b>${esc(f.detail)}</div>`).join('')}</div>` : ''}
     <div class="row"><button class="primary" id="btnSave">이 기록 저장</button><span class="small muted" id="saveMsg"></span></div></div>`;
   if (isS) {
@@ -493,19 +565,33 @@ function renderResults() {
       <div class="reps">${r.reps.filter(x => x.reason !== '시작 전').map(x => `<button class="${x.valid ? '' : 'x'}" data-t="${x.t}" title="${x.valid ? '인정' : esc(x.reason)} · 상체 ${x.peak}°">${x.valid ? x.n : '×'}</button>`).join('')}</div>
       <h3>10초 구간별 인정 개수</h3><div class="bars">${r.buckets.map((b, i) => `<div><span>${b.valid}</span><i style="height:${b.valid / mx * 70}%"></i><span>${i * 10}~${i * 10 + 10}초</span></div>`).join('')}</div></div>`;
   }
-  h += `<div class="card"><div class="row between"><h2>자세 지표</h2><div class="legend"><span><i style="background:var(--ink)"></i>나</span>${rr ? '<span><i style="background:var(--accent)"></i>비교 영상</span>' : ''}<span><i style="background:#9FE0BC;width:14px"></i>권장 범위</span></div></div><div>
+  h += `<div class="card"><div class="row between"><h2>자세 지표</h2><div class="legend"><span><i style="background:var(--ink)"></i>나</span>${M ? '<span><i style="background:var(--accent)"></i>기준 모델</span>' : ''}<span><i style="background:#9FE0BC;width:14px"></i>권장 범위</span></div></div><div>
     ${r.metrics.map(m => `<div class="metric"><div><b>${esc(m.label)}</b></div><div class="val">${m.value}<span> ${m.unit}</span></div>
-      <div class="sub"><span class="pill ${m.verdict === 'good' ? 'good' : m.verdict === 'info' ? 'info' : 'warn'}">${VTXT[m.verdict]}</span>${gauge(m, rmap[m.key])}${m.ref ? `<span>권장 ${m.ref[0]}~${m.ref[1]}${m.unit}</span>` : ''}${rmap[m.key] != null ? `<span>비교 ${rmap[m.key]}${m.unit}</span>` : ''}</div></div>`).join('')}
+      <div class="sub"><span class="pill ${m.verdict === 'good' ? 'good' : m.verdict === 'info' ? 'info' : 'warn'}">${VTXT[m.verdict]}</span>${gauge(m, rmap[m.key])}${m.ref ? `<span>권장 ${m.ref[0]}~${m.ref[1]}${m.unit}</span>` : ''}${rmap[m.key] != null ? `<span>기준 모델 ${rmap[m.key]}${m.unit}</span>` : ''}</div></div>`).join('')}
     </div><p class="small muted">권장 범위는 일반적인 지도 기준입니다. 체형과 영상 각도에 따라 5~10° 차이가 날 수 있으니 같은 조건으로 찍은 내 기록끼리 비교하는 것이 가장 믿을 만합니다.</p></div>`;
-  h += `<div class="card"><h2>고칠 점과 보강운동</h2>${r.tips.length ? r.tips.map(t => `<div class="tip"><h3>${esc(t.p)}</h3><p>${esc(t.fix)}</p>${t.ex.length ? `<div class="ex">${t.ex.map(e => `<span>${esc(e)}</span>`).join('')}</div>` : ''}</div>`).join('') : '<p>지표가 모두 권장 범위 안입니다. 지금 자세를 유지하면서 근력과 순발력을 키우면 기록이 따라옵니다.</p>'}</div>`;
-  h += `<div class="card ${app.ev.dist ? 'hidden' : ''}"><h2>잘하는 사람과 비교</h2><p class="small muted">기록이 좋은 사람의 영상을 같은 방향에서 찍어 넣으면 지표를 나란히 보여 줍니다.</p>
+  const mOf = (k) => r.metrics.find(m => m.key === k), sev = (m) => !m || !m.ref || m.verdict === 'good' || m.verdict === 'info' ? 0 : (m.verdict === 'low' ? m.ref[0] - m.value : m.value - m.ref[1]) / ((m.ref[1] - m.ref[0]) || 1);
+  const tips = r.tips.slice().sort((a, b) => sev(mOf(b.key)) - sev(mOf(a.key))), goods = r.metrics.filter(m => m.verdict === 'good').slice(0, 3).map(m => m.label.replace(/ \(.*/, ''));
+  const cmp = (m) => { if (!m || !m.ref || m.verdict === 'good') return ''; const d = Math.round((m.verdict === 'low' ? m.ref[0] - m.value : m.value - m.ref[1]) * 10) / 10; return `<p class="cmp"><b>나 ${m.value}${m.unit}</b> · 잘하는 사람 ${m.ref[0]}~${m.ref[1]}${m.unit}${rmap[m.key] != null ? ` · 기준 모델 ${rmap[m.key]}${m.unit}` : ''} → <b>${d}${m.unit} ${m.verdict === 'low' ? '모자랍니다' : '넘칩니다'}</b></p>`; };
+  h += `<div class="card"><h2>잘하는 사람과 비교해 고칠 점</h2>${goods.length ? `<p class="small"><b>잘하고 있는 점</b> ${goods.map(esc).join(', ')}</p>` : ''}${tips.length ? `<p class="small muted">차이가 큰 것부터 적었습니다. 위에서부터 하나씩 고치세요.</p>` + tips.map((t, i) => `<div class="tip"><h3>${i + 1}. ${esc(t.p)}</h3>${cmp(mOf(t.key))}<p><b>이렇게 고치세요.</b> ${esc(t.fix)}</p>${t.ex.length ? `<div class="ex">${t.ex.map(e => `<span>${esc(e)}</span>`).join('')}</div>` : ''}</div>`).join('') : '<p>지표가 모두 잘하는 사람 범위 안입니다. 지금 자세를 유지하면서 근력과 순발력을 키우면 기록이 따라옵니다.</p>'}
+    <p class="small muted">"잘하는 사람" 범위는 운동역학 자료와 지도 현장에서 쓰는 일반 기준입니다. 실제 상위권 수험생의 측정을 기준 모델로 저장하면 그 사람 수치와 관절선으로 직접 비교합니다.</p></div>`;
+  h += `<div class="card"><h2>관절선 겹쳐 보기</h2>
+    <p class="small">${M ? `기준 모델: <b>${esc(M.name)}</b> ${fv(M.value)}${M.unit}` : '아직 기준 모델이 없습니다. 잘하는 사람을 이 화면에서 똑같이 측정한 뒤 아래 "기준 모델로 저장"을 누르면 됩니다.'}</p>
+    <label class="row small" for="ghOn" style="${M ? '' : 'display:none'}"><input type="checkbox" id="ghOn" ${app.ghostOn && M ? 'checked' : ''}> 내 영상에 기준 모델 관절선 겹치기 (하늘색이 기준 모델, 흰색이 나)</label>
+    <div class="seg ${M && app.ghostOn ? '' : 'hidden'}" role="group" aria-label="겹치는 방식"><button data-gm="pose" aria-pressed="${(app.ghostMode || 'pose') === 'pose'}">자세 비교 (엉덩이를 맞춤)</button><button data-gm="move" aria-pressed="${app.ghostMode === 'move'}">움직임 비교 (출발 자리를 맞춤)</button></div>
+    <p class="small muted ${M && app.ghostOn ? '' : 'hidden'}">키 차이는 자동으로 맞추고, 핵심 순간(도약·출발 등)을 기준으로 시간을 맞춥니다. 0.25배속이나 1프레임씩 넘기며 보세요.</p>
+    <div class="row"><button id="mdSave">이 측정을 기준 모델로 저장</button><button id="mdDel" class="ghost ${models()[app.ev.id] ? '' : 'hidden'}">기준 모델 지우기</button><span class="small muted" id="mdMsg"></span></div>
+    <div class="${app.ev.dist ? 'hidden' : ''}" style="display:flex;flex-direction:column;gap:10px"><h3>비교 영상을 바로 넣기</h3>
     <div class="row"><button id="btnRef">비교 영상 선택</button><input type="file" id="fRef" accept="video/*" class="hidden">${!isS ? `<label class="small muted" for="refH">비교 대상 키 <input type="number" id="refH" value="${cfgOf(app.ev.id).refHeightCm}"> cm</label>` : ''}<span class="small muted" id="refMsg"></span></div>
     <progress id="refProg" class="hidden" max="1" value="0"></progress><div id="refPlayer"></div>
-    <div class="row ${rr ? '' : 'hidden'}"><button id="btnSync">핵심 순간을 맞춰 함께 재생 (0.5배속)</button></div></div>`;
+    <div class="row ${rr ? '' : 'hidden'}"><button id="btnSync">핵심 순간을 맞춰 함께 재생 (0.5배속)</button></div></div></div>`;
   host.innerHTML = h;
   if (app.ref) { $('#refPlayer').replaceWith(app.ref.host); app.ref.host.id = 'refPlayer'; }
   host.querySelectorAll('.reps button').forEach(b => b.onclick = () => { app.me.seek(+b.dataset.t); $('#playerCard').scrollIntoView({ block: 'nearest' }); });
   $('#btnSave').onclick = () => saveRecord(r);
+  const gh = $('#ghOn'); if (gh) gh.onchange = () => { app.ghostOn = gh.checked; renderResults(); if (gh.checked) $('#playerCard').scrollIntoView({ block: 'nearest' }); };
+  host.querySelectorAll('[data-gm]').forEach(b => b.onclick = () => { app.ghostMode = b.dataset.gm; renderResults(); });
+  $('#mdSave').onclick = () => { models()[app.ev.id] = packModel(app.me, app.name || '기준 모델'); app.model = null; saveCfg(); renderResults(); $('#mdMsg').textContent = cloud.admin ? '저장했습니다. 관리 탭에서 "소속 전체에 적용"을 누르면 수험생들도 이 모델과 비교합니다.' : '이 기기에 저장했습니다.'; };
+  $('#mdDel').onclick = () => { delete models()[app.ev.id]; saveCfg(); renderResults(); };
   $('#btnRef').onclick = () => $('#fRef').click();
   $('#fRef').onchange = (e) => e.target.files[0] && loadRef(e.target.files[0]);
   const rh = $('#refH'); if (rh) rh.onchange = () => { cfgOf(app.ev.id).refHeightCm = +rh.value; recompute(); };
@@ -517,7 +603,7 @@ async function loadRef(file) {
     if (!app.ref) { const h = document.createElement('div'); $('#refPlayer').replaceWith(h); h.id = 'refPlayer'; app.ref = new Player(h, '비교 영상'); }
     await app.ref.load(file); prog.classList.remove('hidden');
     await extract(app.ref, cfgOf(app.ev.id).fps || app.ev.fps, (v) => { prog.value = v; msg.textContent = '비교 영상 추적 중 ' + Math.round(v * 100) + '%'; });
-    compute(app.ref, true); renderResults();
+    compute(app.ref, true); if (app.ref.result.ok) { app.model = packModel(app.ref, '비교 영상'); app.ghostOn = true; } renderResults();
     $('#refMsg').textContent = app.ref.result.ok ? '' : '비교 영상: ' + app.ref.result.error;
   } catch (e) { msg.textContent = '비교 영상을 분석하지 못했습니다: ' + e.message; prog.classList.add('hidden'); }
 }
@@ -525,7 +611,7 @@ async function loadRef(file) {
 /* ── 실시간 측정 ── */
 const live = {
   on: false, rec: false, stream: null, frames: [], pts: [], picking: 0, result: null, facing: 'environment', t0: 0, lastCalc: 0, liveStart: true, onPick: null,
-  v: null, startPick(n) { this.pts = []; this.picking = n; }, setMarkers() { }, draw() { }, seek() { }
+  v: null, startPick(n) { this.picking = n; this.act = Math.min(this.act || 0, this.pts.length); }, setMarkers() { }, draw() { }, seek() { }
 };
 let actx = null;
 function beep(f, ms) { try { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = f; o.connect(g); g.connect(actx.destination); g.gain.value = 0.2; o.start(); o.stop(actx.currentTime + ms / 1000); } catch (e) { } }
@@ -541,9 +627,9 @@ async function liveOpen() {
   await new Promise(r => { if (v.videoWidth) r(); else v.onloadedmetadata = r; });
   live.W = v.videoWidth; live.H = v.videoHeight; const c = $('#liveC'), sc = Math.min(1, 1280 / live.W); live.sc = sc; c.width = Math.round(live.W * sc); c.height = Math.round(live.H * sc);
   $('#liveFrame').style.maxWidth = Math.round(560 * live.W / live.H) + 'px';
-  live.on = true; live.rec = false; live.frames = []; live.pts = []; live.result = null; app.me = live; app.ref = null;
+  live.on = true; live.rec = false; live.frames = []; live.pts = []; live.act = 0; live.picking = 0; live.result = null; app.me = live; app.ref = null;
   $('#setupCard').classList.remove('hidden'); $('#btnRun').classList.add('hidden'); $('#runHint').textContent = ''; setStep(2);
-  cfgOf(app.ev.id).startT = null; if (needPts()[1]) live.startPick(2);
+  cfgOf(app.ev.id).startT = null; if (needPts()[1]) live.startPick(2); $('#liveFrame').classList.toggle('pick', !!live.picking);
   renderSetup(); liveHint(); msg.textContent = '엔진 준비 중…';
   try { await engine.init(); } catch (e) { msg.textContent = '분석 엔진을 불러오지 못했습니다: ' + e.message; return; }
   liveHint(); liveTick();
@@ -551,7 +637,7 @@ async function liveOpen() {
 function liveHint() {
   const c = cfgOf(app.ev.id), id = app.ev.id;
   $('#liveMsg').textContent = live.rec ? (id === 'situp' ? `${c.limitSec}초가 되면 자동으로 끝납니다.` : '동작이 끝나고 1초 뒤에 "측정 종료"를 누르세요.')
-    : live.pts.length < needPts()[0] ? (id === 'jump' ? `화면에서 구름선(①)과 ${c.markCm}cm 표시(②)를 차례로 누르세요. (${live.pts.length}/2)` : '화면에서 출발선이 바닥과 만나는 곳을 누르세요.')
+    : live.pts.length < needPts()[0] ? (id === 'jump' ? '아래 "기준 맞추기"에서 ①, ②를 고르고 화면에서 자리를 찍어 주세요.' : '화면에서 출발선이 바닥과 만나는 곳을 누르세요.')
     : '몸 전체에 관절선이 잡히면 "측정 시작"을 누르세요. 3초 뒤에 시작합니다.';
 }
 async function liveTick() {
@@ -570,7 +656,8 @@ async function liveTick() {
     g.clearRect(0, 0, c.width, c.height); const lw = Math.max(2, c.width / 320);
     if (p) { g.lineWidth = lw; g.lineCap = 'round'; g.strokeStyle = 'rgba(255,255,255,.9)'; BONES.forEach(([a, b]) => { if (p[a][2] < 0.3 || p[b][2] < 0.3) return; g.beginPath(); g.moveTo(p[a][0] * s, p[a][1] * s); g.lineTo(p[b][0] * s, p[b][1] * s); g.stroke(); }); }
     g.strokeStyle = g.fillStyle = '#FFD164'; g.font = `700 ${Math.round(lw * 6.5)}px sans-serif`;
-    live.pts.forEach((q, i) => { g.lineWidth = lw; g.beginPath(); g.arc(q.x * s, q.y * s, lw * 3, 0, 7); g.stroke(); g.fillText(i ? '②' : '①', q.x * s + lw * 4, q.y * s - lw * 4); });
+    live.pts.forEach((q, i) => { g.lineWidth = live.picking && i === live.act ? lw * 1.8 : lw; g.beginPath(); g.arc(q.x * s, q.y * s, lw * 3, 0, 7); g.stroke(); g.fillText(i ? '②' : '①', q.x * s + lw * 4, q.y * s - lw * 4); });
+    drawLoupe(g, v, live, c.width);
   }
   requestAnimationFrame(liveTick);
 }
@@ -613,11 +700,7 @@ function liveClose(keepCard) {
   $('#liveRec').classList.add('hidden'); $('#liveGo').textContent = '측정 시작'; $('#liveGo').disabled = false; $('#liveCount').textContent = '';
   if (!keepCard) $('#liveCard').classList.add('hidden');
 }
-$('#liveC').addEventListener('click', (e) => {
-  if (!live.on || !live.picking) return; const r = e.target.getBoundingClientRect();
-  live.pts.push({ x: (e.clientX - r.left) / r.width * live.W, y: (e.clientY - r.top) / r.height * live.H });
-  if (live.pts.length >= live.picking) live.picking = 0; renderSetup(); liveHint();
-});
+attachPick(live, $('#liveC'));
 $('#btnLive').onclick = liveOpen; $('#liveGo').onclick = liveGo;
 $('#liveFlip').onclick = () => { live.facing = live.facing === 'environment' ? 'user' : 'environment'; liveOpen(); };
 $('#liveOff').onclick = () => { liveClose(); $('#btnRun').classList.remove('hidden'); if (app.me === live) $('#setupCard').classList.add('hidden'); };
@@ -625,6 +708,56 @@ $('#liveOff').onclick = () => { liveClose(); $('#btnRun').classList.remove('hidd
 /* ── 셔틀런 ── */
 const SH_N = [7, 8, 8, 9, 9, 10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16];
 const sh = { on: false, timer: 0, log: [], plan: [], lock: null };
+const shCam = { on: false, stream: null, pts: [], act: 0, picking: 2, W: 0, H: 0, sc: 1, reach: -9, seen: 0, draw() { } };
+const music = { next: 0, step: 0, noise: null };
+function musicTick(lv) { // 직접 합성한 리듬(킥·하이햇·베이스). 저작권 있는 음원은 쓰지 않는다.
+  if (!actx || !$('#shMusic').checked) return; const sp = 60 / (116 + lv * 3) / 2;
+  if (music.next < actx.currentTime) music.next = actx.currentTime + 0.05;
+  while (music.next < actx.currentTime + 0.2) {
+    const t = music.next, k = music.step % 8, env = (node, v, d) => { const g = actx.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + d); node.connect(g); g.connect(actx.destination); };
+    if (k % 4 === 0) { const o = actx.createOscillator(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12); env(o, 0.45, 0.18); o.start(t); o.stop(t + 0.2); }
+    if (k % 2 === 1) { if (!music.noise) { music.noise = actx.createBuffer(1, 2205, 44100); const d = music.noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; } const n = actx.createBufferSource(), f = actx.createBiquadFilter(); n.buffer = music.noise; f.type = 'highpass'; f.frequency.value = 7000; n.connect(f); env(f, 0.07, 0.04); n.start(t); }
+    const b = actx.createOscillator(); b.type = 'triangle'; b.frequency.value = [55, 55, 65.4, 55, 73.4, 55, 65.4, 49][k] * 2; env(b, 0.1, sp * 0.9); b.start(t); b.stop(t + sp);
+    music.next += sp; music.step++;
+  }
+}
+function shPickUI() {
+  const h = $('#shPick'); h.innerHTML = pickUI(shCam, ['출발 쪽 선', '반대쪽 선 (20m)'], ['<b>① 출발 쪽 선</b>: 달리는 줄에서 출발하는 쪽 선이 바닥에 닿는 곳을 찍습니다. 맞으면 위의 ②를 누르세요.', '<b>② 반대쪽 선</b>: 20m 떨어진 선이 바닥에 닿는 곳을 찍습니다.']);
+  bindPick(shCam, h, shPickUI); $('#shCamMsg').textContent = shCam.pts.length < 2 ? '화면에서 양쪽 선 자리를 찍어 주세요.' : '자동 판정 준비됨. 시작을 누르세요.';
+}
+async function shCamOpen() {
+  const msg = $('#shCamMsg'), v = $('#shV');
+  if (shCam.on) return shCamClose();
+  try { shCam.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } }); }
+  catch (e) { msg.textContent = '카메라를 열지 못했습니다. 카메라 권한을 허용해 주세요.'; return; }
+  $('#shCamBox').classList.remove('hidden'); v.srcObject = shCam.stream; await v.play().catch(() => { }); await new Promise(r => { if (v.videoWidth) r(); else v.onloadedmetadata = r; });
+  shCam.W = v.videoWidth; shCam.H = v.videoHeight; const c = $('#shC'); shCam.sc = Math.min(1, 1280 / shCam.W); c.width = Math.round(shCam.W * shCam.sc); c.height = Math.round(shCam.H * shCam.sc);
+  $('#shFrame').style.maxWidth = Math.round(560 * shCam.W / shCam.H) + 'px'; shCam.on = true; shCam.pts = []; shCam.act = 0; $('#shCamBtn').textContent = '자동 판정 끄기'; shPickUI();
+  msg.textContent = '엔진 준비 중…'; try { await engine.init(); } catch (e) { msg.textContent = '분석 엔진을 불러오지 못했습니다.'; return; } shPickUI(); shCamTick();
+}
+function shCamClose() { shCam.on = false; if (shCam.stream) shCam.stream.getTracks().forEach(t => t.stop()); shCam.stream = null; $('#shCamBox').classList.add('hidden'); $('#shCamBtn').textContent = '카메라로 도달 자동 판정'; $('#shCamMsg').textContent = ''; }
+async function shCamTick() {
+  if (!shCam.on) return; const v = $('#shV'), c = $('#shC'), g = c.getContext('2d'), s = shCam.sc;
+  if (v.readyState >= 2) {
+    let lm = null; try { lm = await engine.detect(v); } catch (e) { }
+    g.clearRect(0, 0, c.width, c.height); const lw = Math.max(2, c.width / 320);
+    if (lm) {
+      const p = lm.map(q => [q.x * shCam.W, q.y * shCam.H, q.visibility ?? 1]);
+      g.lineWidth = lw; g.strokeStyle = 'rgba(255,255,255,.9)'; BONES.forEach(([a, b]) => { if (p[a][2] < 0.3 || p[b][2] < 0.3) return; g.beginPath(); g.moveTo(p[a][0] * s, p[a][1] * s); g.lineTo(p[b][0] * s, p[b][1] * s); g.stroke(); });
+      if (sh.on && sh.timer && shCam.pts.length === 2) { const i = sh.log.length, from = shCam.pts[i % 2].x, to = shCam.pts[1 - i % 2].x; [27, 28, 29, 30, 31, 32].forEach(k => { if (p[k][2] > 0.3) shCam.reach = Math.max(shCam.reach, (p[k][0] - from) / (to - from)); }); shCam.seen++; }
+    }
+    g.strokeStyle = g.fillStyle = '#FFD164'; g.font = `700 ${Math.round(lw * 6.5)}px sans-serif`;
+    shCam.pts.forEach((q, i) => { g.lineWidth = lw; g.setLineDash([lw * 3, lw * 3]); g.beginPath(); g.moveTo(q.x * s, 0); g.lineTo(q.x * s, c.height); g.stroke(); g.setLineDash([]); g.beginPath(); g.arc(q.x * s, q.y * s, lw * 3, 0, 7); g.stroke(); g.fillText(i ? '②' : '①', q.x * s + lw * 4, q.y * s - lw * 4); });
+    drawLoupe(g, v, shCam, c.width);
+  }
+  requestAnimationFrame(shCamTick);
+}
+function shAuto() { // 방금 끝난 구간의 자동 판정: 0 도달, 1 미도달
+  if (!shCam.on || shCam.pts.length < 2) return 0; const seen = shCam.seen, reach = shCam.reach; shCam.seen = 0; shCam.reach = -9;
+  if (seen < 3) { $('#shState').textContent = '자동 판정 불가 (사람이 안 잡힘)'; return 0; }
+  const lack = Math.round((1 - reach) * 2000); if (lack <= 30) { $('#shState').textContent = '자동 판정: 도달'; return 0; }
+  $('#shState').textContent = `자동 판정: 미도달 (약 ${lack}cm 부족)`; return 1;
+}
 function shView() {
   const c = cfgOf('shuttle'), i = Math.min(sh.log.length, sh.plan.length - 1), seg = sh.plan[i] || { lv: 1, k: 1, kmh: c.startKmh, dur: 72 / c.startKmh };
   $('#shCount').textContent = sh.log.filter(x => !x).length; $('#shLevel').textContent = `레벨 ${seg.lv} · ${seg.k}번째`;
@@ -635,7 +768,8 @@ function shAbort() { if (sh.timer) clearInterval(sh.timer); sh.timer = 0; sh.on 
 async function shStart() {
   if (sh.on) return shEnd('직접 종료');
   const c = cfgOf('shuttle'); sh.plan = []; SH_N.forEach((n, L) => { const kmh = c.startKmh + 0.5 * L; for (let k = 1; k <= n; k++) sh.plan.push({ lv: L + 1, k, kmh, dur: 72 / kmh }); });
-  sh.log = []; $('#shResult').innerHTML = ''; shView();
+  if (shCam.on && shCam.pts.length < 2) { $('#shCamMsg').textContent = '양쪽 선 자리를 먼저 찍거나, 자동 판정을 끄고 시작하세요.'; return; }
+  sh.log = []; $('#shResult').innerHTML = ''; shView(); shCam.seen = 0; shCam.reach = -9;
   try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { }
   try { sh.lock = await navigator.wakeLock.request('screen'); } catch (e) { }
   $('#shGo').disabled = true; sh.on = true;
@@ -645,7 +779,8 @@ async function shStart() {
   sh.timer = setInterval(() => {
     const i = sh.log.length, seg = sh.plan[i]; if (!seg) return shEnd('마지막 레벨 완료');
     const el = (performance.now() - sh.segStart) / 1000; $('#shProg').value = Math.min(1, el / seg.dur);
-    if (el >= seg.dur) { sh.segStart += seg.dur * 1000; sh.log.push(0); $('#shMiss').disabled = false; const nx = sh.plan[i + 1]; beep(880, 200); if (nx && nx.lv !== seg.lv) setTimeout(() => beep(1100, 250), 280); shView(); }
+    musicTick(seg.lv);
+    if (el >= seg.dur) { sh.segStart += seg.dur * 1000; const miss = shAuto(); sh.log.push(miss); $('#shMiss').disabled = false; if (miss) { let m = 0; for (let j = sh.log.length - 1; j >= 0 && sh.log[j]; j--) m++; if (m >= cfgOf('shuttle').missLimit) return shEnd('미도달로 종료'); } const nx = sh.plan[i + 1]; beep(880, 200); if (nx && nx.lv !== seg.lv) setTimeout(() => beep(1100, 250), 280); shView(); }
   }, 40);
 }
 function shMiss() {
@@ -659,6 +794,7 @@ function shEnd(why) {
   $('#shResult').innerHTML = `<button class="primary" id="shSave">${n}회 기록 저장</button><span class="small muted" id="shMsg">${seg ? `마지막 성공 레벨 ${seg.lv}-${seg.k}` : '성공한 구간이 없습니다'}</span>`;
   $('#shSave').onclick = () => saveRecord({ record: { value: n, unit: '회' }, fouls: [], noteText: seg ? `레벨 ${seg.lv}-${seg.k}` : '', msgEl: $('#shMsg') });
 }
+attachPick(shCam, $('#shC')); $('#shCamBtn').onclick = shCamOpen;
 $('#shGo').onclick = shStart; $('#shMiss').onclick = shMiss;
 $('#shKmh').onchange = (e) => { cfgOf('shuttle').startKmh = +e.target.value || 8.5; saveCfg(); shView(); };
 $('#shLim').onchange = (e) => { cfgOf('shuttle').missLimit = Math.max(1, +e.target.value || 2); saveCfg(); };
@@ -710,8 +846,8 @@ async function api(a, body, qs) {
 function applyCfg(cfg, ver) {
   if (ver == null || ver === cloud.ver) return; cloud.ver = ver; store.set('pe.ver', ver);
   if (!cfg || cloud.admin) return;
-  const mine = {}; Object.keys(app.cfg).forEach(k => { mine[k] = { heightCm: app.cfg[k].heightCm, refHeightCm: app.cfg[k].refHeightCm }; });
-  app.cfg = JSON.parse(JSON.stringify(cfg)); Object.keys(app.cfg).forEach(k => { Object.assign(app.cfg[k], mine[k] || {}, { startT: null }); }); cfgInit.clear(); saveCfg();
+  const mine = {}; Object.keys(app.cfg).forEach(k => { if (k[0] !== '_') mine[k] = { heightCm: app.cfg[k].heightCm, refHeightCm: app.cfg[k].refHeightCm }; });
+  app.cfg = JSON.parse(JSON.stringify(cfg)); Object.keys(app.cfg).forEach(k => { if (k[0] !== '_') Object.assign(app.cfg[k], mine[k] || {}, { startT: null }); }); cfgInit.clear(); saveCfg();
 }
 async function cloudSync() {
   if (!cloud.grp || !app.name || cloud.busy) return false; cloud.busy = true;
@@ -741,7 +877,7 @@ async function cloudJoin(create) {
 }
 $('#grpJoin').onclick = () => cloudJoin(false); $('#grpNew').onclick = () => cloudJoin(true);
 $('#grpLeave').onclick = () => { cloud.grp = ''; cloud.key = ''; cloud.admin = false; cloud.ver = -1; ['pe.grp', 'pe.key'].forEach(k => store.set(k, '')); store.set('pe.ver', -1); cloudView(); };
-setInterval(() => { if (cloud.grp && !document.hidden && !live.on && !sh.on) cloudSync().then((ok) => { if (ok && !$('#records').classList.contains('hidden')) renderRecords(); }); }, 20000);
+setInterval(() => { if (cloud.grp && !document.hidden && !live.on && !sh.on && !shCam.on) cloudSync().then((ok) => { if (ok && !$('#records').classList.contains('hidden')) renderRecords(); }); }, 20000);
 
 /* ── 관리(코치) ── */
 let admRows = [], admTimer = 0;
@@ -771,14 +907,15 @@ function show(id) {
   $('#back').classList.toggle('hidden', id !== 'work'); if (id !== 'work') $('#barTitle').textContent = '실기핏';
   window.scrollTo(0, 0);
 }
-function showTab(id) { liveClose(); shAbort(); show(id); if (id === 'home') renderHome(); if (id === 'records') renderRecords(); if (id === 'my') { $('#athlete').value = app.name; $('#myH').value = cfgOf('jump').heightCm; cloudView(); }
+function showTab(id) { liveClose(); shAbort(); shCamClose(); show(id); if (id === 'home') renderHome(); if (id === 'records') renderRecords(); if (id === 'my') { $('#athlete').value = app.name; $('#myH').value = cfgOf('jump').heightCm; cloudView(); }
   if (id === 'admin') { if (cloud.admin) renderAdmin(); else return go('my'); }
   if ((id === 'home' || id === 'records') && cloud.grp) cloudSync().then((ok) => { if (ok && !$('#' + id).classList.contains('hidden')) (id === 'home' ? renderHome : renderRecords)(); }); }
 function setStep(n) { [1, 2, 3].forEach(i => $('#st' + i).classList.toggle('on', i === n)); }
 function showEvent(ev) {
-  liveClose(); shAbort(); $('#btnRun').classList.remove('hidden');
+  liveClose(); shAbort(); shCamClose(); app.model = null; $('#btnRun').classList.remove('hidden');
   app.ev = ev; app.me = null; app.ref = null; show('work'); setStep(1);
   $('#videoCard').classList.toggle('hidden', !!ev.custom); $('#steps').classList.toggle('hidden', !!ev.custom); $('#shCard').classList.toggle('hidden', !ev.custom); if (ev.custom) shReset();
+  $('#guideFig').innerHTML = FIGS[ev.fig] || '';
   $('#barTitle').textContent = ev.name; $('#guide').innerHTML = ev.guide.map(g => `<li>${g}</li>`).join('');
   ['#playerCard', '#setupCard', '#results'].forEach(s => $(s).classList.add('hidden')); $('#results').innerHTML = ''; $('#fileName').textContent = '';
 }
@@ -807,7 +944,7 @@ $('#trimA').onclick = () => { const p = app.me; p.trim[0] = Math.min(p.v.current
 $('#trimB').onclick = () => { const p = app.me; p.trim[1] = Math.max(p.v.currentTime, p.trim[0] + 0.5); updTrim(); };
 $('#athlete').oninput = (e) => { app.name = e.target.value; store.set('pe.name', app.name); };
 $('#myH').onchange = (e) => { EVENTS.forEach(v => { if (Analysis.DEF[v.id]) cfgOf(v.id).heightCm = +e.target.value || 170; }); saveCfg(); };
-$('#resetCfg').onclick = () => { app.cfg = {}; cfgInit.clear(); saveCfg(); $('#myH').value = cfgOf('jump').heightCm; $('#resetMsg').textContent = '처음 값으로 되돌렸어요.'; };
+$('#resetCfg').onclick = () => { app.cfg = { _models: app.cfg._models }; cfgInit.clear(); saveCfg(); $('#myH').value = cfgOf('jump').heightCm; $('#resetMsg').textContent = '처음 값으로 되돌렸어요.'; };
 let wipeArmed = 0;
 $('#wipe').onclick = (e) => { if (!wipeArmed) { wipeArmed = 1; e.target.textContent = '한 번 더 누르면 지워집니다'; setTimeout(() => { wipeArmed = 0; e.target.textContent = '기록 모두 지우기'; }, 4000); return; } store.set('pe.history', []); wipeArmed = 0; e.target.textContent = '기록 모두 지우기'; $('#wipeMsg').textContent = '모두 지웠어요.'; };
 window.addEventListener('hashchange', route);
