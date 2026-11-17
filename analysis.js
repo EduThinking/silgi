@@ -3,7 +3,7 @@
   'use strict';
   const L = { NOSE: 0, SH: [11, 12], EL: [13, 14], WR: [15, 16], HIP: [23, 24], KNEE: [25, 26], ANK: [27, 28], HEEL: [29, 30], TOE: [31, 32] };
   const DEF = {
-    jump: { lineTolCm: 3, ref: { knee: [80, 110], armBack: [30, 90], armTO: [110, 170], ext: [160, 180], hipExt: [160, 180], angle: [28, 40], reach: [45, 100], landKnee: [60, 120] } },
+    jump: { lineTolCm: 3, ref: { knee: [80, 110], armBack: [30, 90], armTO: [110, 170], ext: [160, 180], hipExt: [160, 180], angle: [25, 39], speed: [3.2, 4.3], reach: [45, 100], landKnee: [60, 120] } },
     situp: { upMode: 'elbow', upAngle: 70, elbowTol: 0.22, downAngle: 12, limitSec: 60, hipLift: true, startT: null, ref: { validRate: [90, 100], paceDrop: [-100, 20], kneeAngle: [70, 100], hipLiftN: [0, 0] } }
   };
 
@@ -59,8 +59,9 @@
     'armTO:low': { p: '도약 순간 팔이 충분히 올라오지 않습니다.', fix: '발이 떨어지는 순간 팔이 눈높이 위까지 올라와 있어야 합니다. 팔을 먼저 던지고 다리가 따라간다는 느낌으로 뛰세요.', ex: ['메디신볼 언더핸드 전방 던지기 3×8', '팔 스윙 점프(팔만 강조) 3×6'] },
     'ext:low': { p: '도약 때 무릎이 다 펴지지 않습니다.', fix: '발끝으로 바닥을 끝까지 밀어내세요. 발목·무릎·엉덩이가 일직선이 된 뒤에 발이 떨어져야 합니다.', ex: ['케틀벨 스윙 4×10', '카프 레이즈 4×15', '연속 브로드 점프 3×4'] },
     'hipExt:low': { p: '도약 때 엉덩이가 다 펴지지 않아 상체가 접힌 채로 뜹니다.', fix: '골반을 앞으로 밀어 몸을 길게 펴면서 뛰세요.', ex: ['힙 쓰러스트 4×8', '루마니안 데드리프트 4×6', '케틀벨 스윙 4×10'] },
+    'speed:low': { p: '발이 떨어지는 순간의 속도가 느립니다. 기록을 가장 크게 좌우하는 부분입니다.', fix: '앉았다 일어나는 동작을 끊지 말고 한 번에 빠르게 이어 가세요. 팔을 앞으로 던지는 힘과 다리로 미는 힘이 같은 순간에 터져야 합니다. 연구에서는 팔을 쓰면 기록이 10~20% 늘었습니다.', ex: ['스쿼트 점프 4×5', '케틀벨 스윙 4×10', '메디신볼 전방 던지기 3×8', '연속 브로드 점프 3×4'] },
     'angle:low': { p: '도약 각도가 낮아 체공 시간이 짧습니다.', fix: '시선을 3~4m 앞 바닥이 아니라 정면 위쪽에 두고, 앞쪽 위로 뛰어오르세요.', ex: ['낮은 허들(30cm) 넘어 멀리뛰기 3×5', '박스 점프 3×5'] },
-    'angle:high': { p: '도약 각도가 높아 위로만 뜨고 앞으로 나가지 못합니다.', fix: '뛰기 직전 몸 전체를 앞으로 기울여 무게중심이 발끝을 넘어간 뒤에 밀어내세요.', ex: ['전경 자세 낙하 드릴 3×6', '연속 브로드 점프 3×4'] },
+    'angle:high': { p: '도약 각도가 높아 위로만 뜨고 앞으로 나가지 못합니다.', fix: '뛰기 직전 몸 전체를 앞으로 기울여 무게중심이 발끝을 넘어간 뒤에 밀어내세요. 각도는 5° 안팎으로 달라도 거리 손해가 2cm 정도라서, 속도와 착지를 먼저 고치는 편이 낫습니다.', ex: ['전경 자세 낙하 드릴 3×6', '연속 브로드 점프 3×4'] },
     'reach:low': { p: '착지 때 발을 앞으로 내밀지 못합니다. 여기서 10~20cm를 잃습니다.', fix: '공중에서 무릎을 가슴으로 당긴 뒤 착지 직전 발뒤꿈치를 앞으로 던지세요. 팔은 뒤로 내립니다.', ex: ['행잉 니 레이즈 3×10', '턱 점프 3×6', '파이크 점프 3×5', '햄스트링 스트레칭'] },
     'landKnee:high': { p: '착지가 뻣뻣합니다. 뒤로 넘어지거나 부상 위험이 있습니다.', fix: '뒤꿈치가 닿자마자 무릎을 굽혀 엉덩이를 발 쪽으로 당겨 오세요.', ex: ['박스 드랍 착지 3×6', '스쿼트 홀드 3×30초'] }
   };
@@ -150,7 +151,7 @@
       metric('angle', '도약 각도', deg(Math.atan2(vy, vx)), '°', R.angle),
       metric('reach', '착지 시 발 내밀기 (다리 길이 대비)', reach, '%', R.reach),
       metric('landKnee', '착지 무릎 굽힘 (최소 각도)', landKnee, '°', R.landKnee),
-      metric('speed', '도약 속도', Math.hypot(vx, vy), 'm/s', null, 2),
+      metric('speed', '도약 속도', Math.hypot(vx, vy), 'm/s', R.speed, 2),
       metric('flight', '체공 시간', Tf, '초', null, 2)
     ];
     return {
@@ -245,9 +246,9 @@
   }
 
   /* ───────── 공통: 설정 병합 ───────── */
-  DEF.sargent = { ref: { knee: [80, 110], armTO: [120, 180], ext: [160, 180], drift: [0, 20], landKnee: [70, 130] } };
+  DEF.sargent = { ref: { knee: [70, 110], armTO: [120, 180], ext: [160, 180], drift: [0, 20], landKnee: [70, 130] } };
   DEF.flex = { holdSec: 2, kneeMin: 165, tipOffsetCm: 6, ref: { hipAngle: [0, 55], kneeAngle: [165, 180], sway: [0, 2] } };
-  DEF.run10 = { calibMode: 'height', laps: 2, startMode: 'line', ref: { lean: [30, 60], turn: [0, 1.2], hipLow: [45, 75], finDrop: [-100, 8] } };
+  DEF.run10 = { calibMode: 'height', laps: 2, startMode: 'line', ref: { lean: [25, 60], turn: [0, 1.2], hipLow: [45, 75], finDrop: [-100, 8] } };
   DEF.run20 = JSON.parse(JSON.stringify(DEF.run10));
   DEF.shuttle = { startKmh: 8.5, missLimit: 2 };
   const mk = (id, o) => Object.assign({}, DEF[id], o.cfg, { ref: Object.assign({}, DEF[id].ref, o.cfg && o.cfg.ref) });
@@ -323,8 +324,8 @@
   const RUN_TIPS = {
     'lean:low': { p: '출발하자마자 상체가 섭니다. 가속 구간에서 힘이 위로 빠집니다.', fix: '첫 3~4걸음은 머리부터 발목까지 일직선으로 앞으로 기울인 채 바닥을 뒤로 밀어내세요.', ex: ['월 드릴(벽 밀고 무릎 올리기) 3×10', '푸시업 스타트 5회', '슬레드·밴드 저항 달리기 5×10m'] },
     'lean:high': { p: '출발 때 상체가 너무 숙여져 첫걸음이 짧아집니다.', fix: '시선을 3m 앞 바닥에 두고, 넘어지지 않을 만큼만 기울이세요.', ex: ['폴링 스타트 5회', '3점 스타트 반복 5×5m'] },
-    'turn:high': { p: '턴에 시간이 오래 걸립니다.', fix: '선 두 걸음 전부터 보폭을 줄여 몸을 낮추고, 마지막 발을 옆으로 디뎌 한 번에 방향을 바꾸세요.', ex: ['5-10-5 프로 어질리티 6회', '감속 스텝 드릴(3보 감속 후 정지) 3×6', '래터럴 바운드 3×8'] },
-    'hipLow:high': { p: '턴할 때 무게중심이 높습니다. 미끄러지거나 크게 돌게 됩니다.', fix: '선을 밟을 때 무릎을 깊이 굽혀 엉덩이를 낮추고, 손이 바닥에 닿을 만큼 숙이세요.', ex: ['사이드 런지 3×10', '스케이터 점프 3×10', '낮은 자세 셔플 3×10m'] },
+    'turn:high': { p: '턴에 시간이 오래 걸립니다.', fix: '빨리 도는 선수는 선 바로 앞 한 걸음(마지막에서 두 번째 발)에서 엉덩이·무릎·발목을 깊게 접어 속도를 죽이고, 선을 밟는 발은 짧게 딛고 바로 밀어냅니다. 선 두 걸음 전부터 몸을 낮추고, 디딘 발끝과 골반을 돌아갈 방향으로 틀어 두세요.', ex: ['5-10-5 프로 어질리티 6회', '감속 스텝 드릴(3보 감속 후 정지) 3×6', '래터럴 바운드 3×8'] },
+    'hipLow:high': { p: '턴할 때 무게중심이 높습니다. 미끄러지거나 크게 돌게 됩니다.', fix: '선을 밟기 전 걸음에서 이미 낮아져 있어야 합니다. 무릎을 깊이 굽혀 엉덩이를 낮추고 상체를 돌아갈 쪽으로 기울이세요.', ex: ['사이드 런지 3×10', '스케이터 점프 3×10', '낮은 자세 셔플 3×10m'] },
     'finDrop:high': { p: '도착 전에 속도를 줄입니다.', fix: '선을 지나 3m 뒤를 결승선이라고 생각하고 그대로 통과하세요.', ex: ['선 통과 후 5m 더 달리기 반복 6회'] }
   };
   function analyzeRun(frames, o) {
@@ -377,6 +378,11 @@
       vlines: [{ x: o.lineX, label: '출발선' }].concat(far ? [{ x: o.farX, label: '반대편' }] : []) };
   }
 
-  const api = { DEF, prep, bodyH, analyzeJump, analyzeSitup, analyzeSargent, analyzeFlex, analyzeRun, pivots, ang };
+  const BASIS = {
+    jump: [['제자리멀리뛰기 최적 도약 각도 (Wakai & Linthorne, 2005)', 'https://bura.brunel.ac.uk/bitstream/2438/537/1/%27Standing%20Long%20Jump%27%20Post-print.pdf'], ['제자리멀리뛰기의 팔 동작과 무릎 각도 (sponet)', 'https://sponet.de/sponet/Record/4011476?lng=en']],
+    sargent: [['반동 깊이와 점프 높이 (PMC11208864)', 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11208864']],
+    run: [['180° 방향 전환을 빠르게 하는 요인 (Dos\'Santos 외, 2020)', 'https://e-space.mmu.ac.uk/626014'], ['세계 정상급 단거리 선수의 스타트 (Walker 외, 2021)', 'https://researchportal.bath.ac.uk/en/publications/kinematic-factors-associated-with-start-performance-in-world-clas/']]
+  };
+  const api = { BASIS, DEF, prep, bodyH, analyzeJump, analyzeSitup, analyzeSargent, analyzeFlex, analyzeRun, pivots, ang };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Analysis = api;
 })(typeof self !== 'undefined' ? self : this);
