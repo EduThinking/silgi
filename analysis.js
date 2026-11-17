@@ -3,7 +3,7 @@
   'use strict';
   const L = { NOSE: 0, SH: [11, 12], EL: [13, 14], WR: [15, 16], HIP: [23, 24], KNEE: [25, 26], ANK: [27, 28], HEEL: [29, 30], TOE: [31, 32] };
   const DEF = {
-    jump: { calibMode: 'height', lineTolCm: 3, ref: { knee: [80, 110], armBack: [30, 90], armTO: [110, 170], ext: [160, 180], hipExt: [160, 180], angle: [25, 39], speed: [3.2, 4.3], reach: [45, 100], landKnee: [60, 120] } },
+    jump: { calibMode: 'height', lineTolCm: 3, ref: { knee: [80, 110], armBack: [30, 90], armTO: [110, 180], ext: [160, 180], hipExt: [160, 180], angle: [25, 39], speed: [2.6, 4.3], reach: [45, 100], landKnee: [30, 120] } },
     situp: { upMode: 'elbow', upAngle: 70, elbowTol: 0.22, downAngle: 12, limitSec: 60, hipLift: true, startT: null, ref: { validRate: [90, 100], paceDrop: [-100, 20], kneeAngle: [70, 100], hipLiftN: [0, 0] } }
   };
 
@@ -103,13 +103,13 @@
     const toeX = toeS[fA], lineX = hasLine ? o.line.x * dir : toeX;
     // 착지 뒤꿈치: 발이 멈춘 첫 프레임
     let j = b; while (j < Math.min(n - 2, b + 5) && Math.abs(heelR(j + 1) - heelR(j)) > 0.012 * H) j++;
-    let landX = heelR(j);
+    const settle = idxAt(S, T[b] + 0.5); let landX = heelR(j); for (let i = j; i <= settle; i++) if (h[i] <= thr) landX = Math.min(landX, heelR(i));
     const fouls = [], notes = [];
     // 착지 후 1초: 뒤로 물러남 / 손·엉덩이 짚기
     const endI = idxAt(S, T[b] + 1.0);
     let backX = landX, backWhy = null;
-    for (let i = j; i <= endI; i++) {
-      if (h[i] <= thr && heelR(i) < backX - 0.04 * H) { backX = heelR(i); backWhy = '발'; }
+    for (let i = settle; i <= endI; i++) {
+      if (h[i] <= thr && heelR(i) < backX - 0.06 * H) { backX = heelR(i); backWhy = '발'; }
       [15, 16].forEach(w => { const q = P[i][w], hh = k * q[0] - q[1] - base; if (q[2] > 0.3 && hh < 0.05 * H && q[0] * dir < backX - 0.03 * H) { backX = q[0] * dir; backWhy = '손'; } });
       const hp = mid(P[i][23], P[i][24]), hh = k * hp[0] - hp[1] - base;
       if (hh < 0.09 * H && hp[0] * dir < backX) { backX = hp[0] * dir; backWhy = '엉덩이'; }
