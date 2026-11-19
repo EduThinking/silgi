@@ -290,7 +290,7 @@
   function analyzeSargent(frames, o) {
     o = o || {}; const cfg = mk('sargent', o), S = prep(frames);
     if (S.n < 12) return err('사람이 인식된 구간이 너무 짧습니다. 전신이 나오게 다시 촬영해 주세요.');
-    const H = bodyH(S), ppc = H / (o.heightCm || 170), T = S.t, P = S.p, n = S.n;
+    const H = bodyH(S), ppc = o.pxPerCm || H / (o.heightCm || 170), T = S.t, P = S.p, n = S.n;
     const lowY = P.map(f => Math.max(f[29][1], f[30][1], f[31][1], f[32][1])), base = quant(lowY, 0.8), h = lowY.map(y => base - y), thr = 0.04 * H;
     const runs = []; let s = -1;
     for (let i = 0; i <= n; i++) { const air = i < n && h[i] > thr; if (air && s < 0) s = i; if (!air && s >= 0) { runs.push({ s, e: i - 1 }); s = -1; } }
