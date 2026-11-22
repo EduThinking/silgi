@@ -3,7 +3,8 @@
   'use strict';
   const L = { NOSE: 0, SH: [11, 12], EL: [13, 14], WR: [15, 16], HIP: [23, 24], KNEE: [25, 26], ANK: [27, 28], HEEL: [29, 30], TOE: [31, 32] };
   const DEF = {
-    jump: { calibMode: 'height', lineTolCm: 3, ref: { knee: [80, 110], armBack: [30, 90], armTO: [110, 180], ext: [160, 180], hipExt: [160, 180], angle: [25, 39], speed: [2.6, 4.3], tuck: [0, 100], tuckT: [0, 60], heelKick: [-200, 10], ankle: [60, 115], legOut: [0.03, 0.15], tdKnee: [125, 180], tdHip: [20, 100], reach: [45, 100], landKnee: [30, 120] } },
+    // shoeCm: 관절 인식의 뒤꿈치·발끝 점은 신발 실제 끝보다 안쪽에 찍힌다. 테이프 4점 방식에서 실측 기록 5건(190·193·249·250·257cm)에 맞춰 잡은 보정값.
+    jump: { calibMode: 'height', lineTolCm: 3, shoeCm: 8.5, ref: { knee: [80, 110], armBack: [30, 90], armTO: [110, 180], ext: [160, 180], hipExt: [160, 180], angle: [25, 39], speed: [2.6, 4.3], tuck: [0, 100], tuckT: [0, 60], heelKick: [-200, 10], ankle: [60, 115], legOut: [0.03, 0.15], tdKnee: [125, 180], tdHip: [20, 100], reach: [45, 100], landKnee: [30, 120] } },
     situp: { upMode: 'elbow', upAngle: 70, elbowTol: 0.22, downAngle: 12, limitSec: 60, hipLift: true, startT: null, ref: { validRate: [90, 100], paceDrop: [-100, 20], kneeAngle: [70, 100], hipLiftN: [0, 0] } }
   };
 
@@ -49,6 +50,21 @@
   }
   function verdict(v, ref) { return !ref ? 'info' : v < ref[0] ? 'low' : v > ref[1] ? 'high' : 'good'; }
   function metric(key, label, value, unit, ref, d = 0, at, j) { const v = round(value, d); return { key, label, value: v, unit, ref: ref || null, verdict: verdict(v, ref), at: at == null || !isFinite(at) ? null : round(at, 3), j: j || null }; }
+  /* 바닥 원근 보정: 출발선·거리선 테이프의 [가까운 끝, 먼 끝] 두 쌍(4점)으로 바닥 위 거리(cm)를 구한다.
+     두 선이 화면에서 만나는 소실점을 지나는 직선은 바닥에서 출발선과 나란한 선이다. 카메라를 정확히 옆에 두면
+     (u-소실점x)/(v-소실점y) 값이 실제 거리에 비례하므로, 카메라에서 가깝든 멀든 같은 기준으로 잴 수 있다. */
+  function floorModel(pts, cm) {
+    if (!pts || pts.length < 4 || !(cm > 0)) return null;
+    const [a, b, c, d] = pts, D = (a.x - b.x) * (c.y - d.y) - (a.y - b.y) * (c.x - d.x);
+    if (Math.abs(D) < 1e-6) return null;
+    const t = ((a.x - c.x) * (c.y - d.y) - (a.y - c.y) * (c.x - d.x)) / D, V = { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+    if (!(V.y < Math.min(a.y, b.y, c.y, d.y) - 20)) return null; // 소실점이 바닥보다 위에 있어야 한다
+    const q = (u, v) => (u - V.x) / (v - V.y), q1 = q(a.x, a.y), q2 = q(c.x, c.y);
+    if (Math.abs(q2 - q1) < 1e-6) return null;
+    const K = cm / (q2 - q1), X = (u, v) => K * (q(u, v) - q1);
+    X.vp = V; X.ppc = Math.hypot(c.x - a.x, c.y - a.y) / cm; X.fromStart = (y) => ({ x: V.x + q1 * (y - V.y) }); X.at = (cmv, y) => V.x + (cmv / K + q1) * (y - V.y);
+    return X;
+  }
   const idxAt = (S, time) => { let b = 0; for (let i = 0; i < S.n; i++) if (Math.abs(S.t[i] - time) < Math.abs(S.t[b] - time)) b = i; return b; };
 
   /* ───────── 제자리멀리뛰기 ───────── */
@@ -79,7 +95,9 @@
     const cfg = Object.assign({}, DEF.jump, o.cfg, { ref: Object.assign({}, DEF.jump.ref, o.cfg && o.cfg.ref) });
     const S = prep(frames);
     if (S.n < 12) return err('사람이 인식된 구간이 너무 짧습니다. 전신이 옆모습으로 나오게 다시 촬영해 주세요.');
-    const H = bodyH(S), ppc = o.pxPerCm || (o.heightCm ? H / o.heightCm : 0);
+    const FM = o.floor ? floorModel(o.floor.pts, o.floor.cm) : null;
+    if (o.floor && !FM) return err('테이프 네 점으로 바닥을 맞추지 못했습니다. 출발선과 거리선 테이프의 가까운 끝·먼 끝을 각각 다시 찍어 주세요. 두 선이 화면에서 위쪽으로 모여야 합니다.');
+    const H = bodyH(S), ppc = FM ? FM.ppc : o.pxPerCm || (o.heightCm ? H / o.heightCm : 0);
     if (!ppc) return err('거리 기준이 없습니다. 기준점을 찍거나 키를 입력해 주세요.');
     const k = o.ground ? o.ground.k : 0, slopeF = Math.sqrt(1 + k * k);
     const T = S.t, P = S.p, n = S.n;
@@ -109,27 +127,60 @@
     const toeF = i => P[i][31 + fA][0] * dir;
     const heelR = i => Math.min(...feetUse.map(f => P[i][29 + f][0] * dir + offF[f]));
     const toeX = toeS[fA], lineX = hasLine ? o.line.x * dir : toeX;
-    // 착지 뒤꿈치: 발이 멈춘 첫 프레임
+    // 착지 직후 발이 멈춘 자리 (자세 지표·뒤 짚기 판정에 쓴다)
     let j = b; while (j < Math.min(n - 2, b + 5) && Math.abs(heelR(j + 1) - heelR(j)) > 0.012 * H) j++;
-    const settle = idxAt(S, T[b] + 0.5); let landX = heelR(j); for (let i = j; i <= settle; i++) if (h[i] <= 2.5 * thr) landX = Math.min(landX, heelR(i)); // 깊이 앉으면 발 관절이 화면에서 조금 떠 보여 여유를 둔다
+    const settle = idxAt(S, T[b] + 0.5), settleI = []; let landX = heelR(j); for (let i = j; i <= settle; i++) if (h[i] <= 2.5 * thr) { landX = Math.min(landX, heelR(i)); settleI.push(i); } // 깊이 앉으면 발 관절이 화면에서 조금 떠 보여 여유를 둔다
     const fouls = [], notes = [];
+    // 기록 자리: 착지 후 똑바로 섰을 때의 뒤꿈치 (무릎·엉덩이가 펴진 채 0.2초 이상)
+    const sdU = nearSide(S, [L.HIP, L.KNEE, L.ANK, L.SH]);
+    const settleX = landX, okFeet = i => feetUse.every(f => Math.min(P[i][29 + f][2], P[i][31 + f][2]) >= 0.5) && Math.abs(heelR(i) - settleX) < 0.3 * H;
+    const upright = i => okFeet(i) && ang(P[i][L.HIP[sdU]], P[i][L.KNEE[sdU]], P[i][L.ANK[sdU]]) >= 155 && ang(P[i][L.SH[sdU]], P[i][L.HIP[sdU]], P[i][L.KNEE[sdU]]) >= 150 && h[i] <= 2.5 * thr;
+    const need = Math.max(5, Math.round(0.2 / ((T[n - 1] - T[0]) / (n - 1) || 0.033)));
+    let st = [], cur = [];
+    for (let i = j + 1; i < n; i++) { if (upright(i)) { cur.push(i); if (cur.length >= need && !st.length) st = cur; } else { if (st.length) break; cur = []; } }
+    const standI = st.length ? st : null;
+    // 테이프 4점 방식: 발마다 바닥에 닿는 높이에서 원근을 풀어 cm로 바꾼다
+    const vF = (i, f) => Math.max(P[i][29 + f][1], P[i][31 + f][1]);
+    const heelC = i => Math.min(...feetUse.map(f => FM(P[i][29 + f][0], vF(i, f))));
     // 착지 후 1초: 뒤로 물러남 / 손·엉덩이 짚기
     const endI = idxAt(S, T[b] + 1.0);
-    let backX = landX, backWhy = null;
+    let backX = landX, backWhy = null, backPt = null;
     for (let i = settle; i <= endI; i++) {
-      if (h[i] <= 2.5 * thr && heelR(i) < backX - 0.06 * H) { backX = heelR(i); backWhy = '발'; }
-      [15, 16].forEach(w => { const q = P[i][w], hh = k * q[0] - q[1] - base; if (q[2] > 0.3 && hh < 0.05 * H && q[0] * dir < backX - 0.03 * H) { backX = q[0] * dir; backWhy = '손'; } });
+      if (!standI && h[i] <= 2.5 * thr && heelR(i) < backX - 0.06 * H) { backX = heelR(i); backWhy = '발'; backPt = { i }; }
+      [15, 16].forEach(w => { const q = P[i][w], hh = k * q[0] - q[1] - base; if (q[2] > 0.3 && hh < 0.05 * H && q[0] * dir < backX - 0.03 * H) { backX = q[0] * dir; backWhy = '손'; backPt = { u: q[0], v: q[1] }; } });
       const hp = mid(P[i][23], P[i][24]), hh = k * hp[0] - hp[1] - base;
-      if (hh < 0.09 * H && hp[0] * dir < backX) { backX = hp[0] * dir; backWhy = '엉덩이'; }
+      if (hh < 0.09 * H && hp[0] * dir < backX) { backX = hp[0] * dir; backWhy = '엉덩이'; backPt = { u: hp[0], v: Math.max(vF(i, 0), vF(i, 1)) }; }
     }
-    if (backWhy) { fouls.push({ code: 'back', sev: 'bad', label: `착지 후 ${backWhy}이 뒤에 닿음`, detail: `가장 뒤쪽 접지점 기준으로 ${round((landX - backX) * slopeF / ppc)}cm 줄어듭니다.` }); landX = backX; }
-    const distCm = (landX - lineX) * slopeF / ppc, skew = Math.abs(offF[1 - fA]) / ppc;
-    if (feetUse.length === 2 && skew > 2) notes.push(`두 발이 화면에서 ${round(skew)}cm 어긋나 보여 발마다 보정했습니다. 카메라를 정확히 옆에 두면 더 정확합니다.`);
-    if (hasLine) {
-      const over = (toeX - lineX) * slopeF / ppc;
-      if (over > cfg.lineTolCm) fouls.push({ code: 'line', sev: 'bad', label: '출발선 밟음(넘음)', detail: `발끝이 선을 약 ${round(over)}cm 넘었습니다.` });
-      else notes.push(`출발선까지 여유 ${round(Math.max(0, -over))}cm`);
-    } else notes.push('출발선을 지정하지 않아 발끝부터 잰 거리입니다. 선 밟기 판정은 하지 않았습니다.');
+    let distCm, startCm = 0, landCm = 0, yF = 0;
+    const skew = FM ? 0 : Math.abs(offF[1 - fA]) / ppc;
+    if (FM) {
+      const toeC = [0, 1].map(f => median(stance.map(i => FM(P[i][31 + f][0], vF(i, f)))));
+      const fS = toeC[0] >= toeC[1] ? 0 : 1; startCm = toeC[fS];
+      const visI = settleI.filter(i => feetUse.every(f => Math.min(P[i][29 + f][2], P[i][31 + f][2]) >= 0.5)), useI = standI || (visI.length ? visI : settleI.length ? settleI : [j]);
+      landCm = median(useI.map(heelC)); yF = median(useI.map(i => Math.max(vF(i, 0), vF(i, 1))));
+      if (backWhy) {
+        const bc = backPt.i != null ? heelC(backPt.i) : FM(backPt.u, backPt.v);
+        if (bc < landCm) { fouls.push({ code: 'back', sev: 'bad', label: `착지 후 ${backWhy}이 뒤에 닿음`, detail: `가장 뒤쪽 접지점 기준으로 ${round(landCm - bc)}cm 줄어듭니다.` }); landCm = bc; }
+      }
+      distCm = landCm - startCm - (cfg.shoeCm || 0);
+      // 관절 점의 흔들림이 ±3cm쯤이라 그만큼은 '의심'으로만 알린다
+      if (startCm > cfg.lineTolCm + 3) fouls.push({ code: 'line', sev: 'bad', label: '출발선 밟음(넘음)', detail: `발끝이 선을 약 ${round(startCm)}cm 넘었습니다.` });
+      else if (startCm > cfg.lineTolCm) fouls.push({ code: 'line', sev: 'warn', label: '출발선 밟음 의심', detail: `발끝이 선을 약 ${round(startCm)}cm 넘어 보입니다. 측정 흔들림 범위라 영상으로 확인하세요.` });
+      else notes.push(`출발 발끝이 출발선 ${startCm >= 0 ? '위' : '뒤 ' + round(-startCm) + 'cm'}에 있었습니다. 기록은 발끝부터 잽니다.`);
+      notes.push(`테이프 네 점으로 원근을 보정하고, 관절 점과 신발 끝의 차이 ${cfg.shoeCm}cm를 뺐습니다.`);
+    } else {
+      if (standI) landX = median(standI.map(heelR));
+      if (backWhy && backX < landX) { fouls.push({ code: 'back', sev: 'bad', label: `착지 후 ${backWhy}이 뒤에 닿음`, detail: `가장 뒤쪽 접지점 기준으로 ${round((landX - backX) * slopeF / ppc)}cm 줄어듭니다.` }); landX = backX; }
+      distCm = (landX - lineX) * slopeF / ppc;
+      if (feetUse.length === 2 && skew > 2) notes.push(`두 발이 화면에서 ${round(skew)}cm 어긋나 보여 발마다 보정했습니다. 카메라를 정확히 옆에 두면 더 정확합니다.`);
+      if (hasLine) {
+        const over = (toeX - lineX) * slopeF / ppc;
+        if (over > cfg.lineTolCm) fouls.push({ code: 'line', sev: 'bad', label: '출발선 밟음(넘음)', detail: `발끝이 선을 약 ${round(over)}cm 넘었습니다.` });
+        else notes.push(`출발선까지 여유 ${round(Math.max(0, -over))}cm`);
+      } else notes.push('출발선을 지정하지 않아 발끝부터 잰 거리입니다. 선 밟기 판정은 하지 않았습니다.');
+      notes.push('카메라에서 먼 쪽 발과 가까운 쪽 발의 거리 차(원근)는 보정하지 않았습니다. 정확히 재려면 "테이프 4점" 방식을 쓰세요.');
+    }
+    notes.unshift(standI ? '기록은 착지 후 똑바로 섰을 때 뒤꿈치 자리로 쟀습니다.' : '착지 후 똑바로 선 장면이 영상에 없어 착지 직후 발이 멈춘 자리로 쟀습니다. 일어설 때까지 찍어야 기준과 같아집니다.');
     // 이중 도약 / 준비 중 발 이동
     const w0 = idxAt(S, T[a] - 1.5);
     if (runs.some(r => r !== main && r.e < main.s && T[r.s] >= T[w0] && T[r.e] - T[r.s] >= 0.05)) fouls.push({ code: 'double', sev: 'warn', label: '이중 도약 의심', detail: '도약 직전에 발이 한 번 떴습니다. 영상을 확인하세요.' });
@@ -185,8 +236,8 @@
     return {
       ok: true, event: 'jump', record: { value: round(distCm), unit: 'cm', valid: !fouls.some(f => f.sev === 'bad') }, fouls, notes, metrics,
       tips: tipsFor(metrics, JUMP_TIPS),
-      events: [{ t: T[deep], label: '최대 반동' }, { t: T[main.s], label: '도약' }, { t: T[j], label: '착지' }],
-      anchor: T[main.s], geom: { base, dir, lineX: lineX * dir, landX: landX * dir, toeX: toeX * dir, k, hasLine }, pxPerCm: ppc, hPx: H
+      events: [{ t: T[deep], label: '최대 반동' }, { t: T[main.s], label: '도약' }, { t: T[j], label: '착지' }].concat(standI ? [{ t: T[standI[0]], label: '기록 자리' }] : []),
+      anchor: T[main.s], geom: FM ? { base: -yF, dir, lineX: FM.at(startCm, yF), landX: FM.at(landCm, yF), toeX: FM.at(startCm, yF), k: 0, hasLine: true, floor: true } : { base, dir, lineX: lineX * dir, landX: landX * dir, toeX: toeX * dir, k, hasLine }, pxPerCm: ppc, hPx: H
     };
   }
 
@@ -296,7 +347,23 @@
     for (let i = 0; i <= n; i++) { const air = i < n && h[i] > thr; if (air && s < 0) s = i; if (!air && s >= 0) { runs.push({ s, e: i - 1 }); s = -1; } }
     let main = null; runs.forEach(r => { const d = T[r.e] - T[r.s]; if (r.s > 1 && r.e < n - 2 && d >= 0.12 && d <= 1.3 && (!main || d > T[main.e] - T[main.s])) main = r; });
     if (!main) return err('점프 구간을 찾지 못했습니다. 준비 자세부터 착지 후 1초까지 발이 화면에 다 나오게 찍어 주세요.');
-    const a = main.s - 1, b = main.e + 1, Tf = ((T[b] - T[a]) + (T[main.e] - T[main.s])) / 2, flightH = 122.6 * Tf * Tf;
+    // 체공 경계를 낮은 문턱으로 다시 잡는다: 처음 찾을 때 쓴 문턱(키의 4%)은 발이 꽤 뜬 뒤라 체공 시간이 짧게 잡힌다.
+    // 프레임 평활 전 원래 값으로 잡아야 경계가 번지지 않는다.
+    const rawP = new Map(frames.filter(f => f && f.p).map(f => [f.t, f.p]));
+    const hR = T.map((t, i) => { const q = rawP.get(t); return q ? base - Math.max(q[29][1], q[30][1], q[31][1], q[32][1]) : h[i]; });
+    const pre = hR.slice(Math.max(0, main.s - 45), Math.max(1, main.s - 8)), pm = median(pre), noise = 1.4826 * median(pre.map(v => Math.abs(v - pm))) || 0;
+    const lo = Math.max(0.008 * H, 4 * noise);
+    { let s0 = main.s, e0 = main.e; while (s0 > 1 && hR[s0 - 1] - pm > lo) s0--; while (e0 < n - 2 && hR[e0 + 1] - pm > lo) e0++; main = { s: s0, e: e0 }; }
+    for (let i = 0; i < n; i++) h[i] = hR[i] - pm;
+    const a = main.s - 1, b = main.e + 1;
+    /* 체공 시간 (센서판과 같은 방식): 발이 바닥에서 떨어진 순간 ~ 다시 닿은 순간.
+       프레임 사이에 떨어지고 닿으므로, 떨어진 직후 두 프레임의 발 속도로 0높이 순간을 거꾸로 짚고(착지도 같은 방식) 프레임보다 잘게 잡는다. */
+    const dt0 = (T[n - 1] - T[0]) / (n - 1) || 1 / 30;
+    const vUp = Math.max(1e-6, (h[Math.min(main.s + 1, main.e)] - h[main.s]) / ((T[Math.min(main.s + 1, main.e)] - T[main.s]) || dt0));
+    const vDn = Math.max(1e-6, (h[Math.max(main.e - 1, main.s)] - h[main.e]) / ((T[main.e] - T[Math.max(main.e - 1, main.s)]) || dt0));
+    const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+    const tOff = clamp(T[main.s] - Math.max(0, h[main.s]) / vUp, T[a], T[main.s]), tOn = clamp(T[main.e] + Math.max(0, h[main.e]) / vDn, T[main.e], T[b]);
+    const Tf = tOn - tOff, flightH = 122.6 * Tf * Tf, Terr = dt0 / 4;
     const hipY = i => (P[i][23][1] + P[i][24][1]) / 2, hipX = i => (P[i][23][0] + P[i][24][0]) / 2;
     const sd = nearSide(S, [L.HIP, L.KNEE, L.ANK, L.SH]), J = (i, key) => P[i][L[key][sd]], JK = [L.HIP[sd], L.KNEE[sd], L.ANK[sd]], JA = [L.HIP[sd], L.SH[sd], L.WR[sd]];
     const knee = i => ang(J(i, 'HIP'), J(i, 'KNEE'), J(i, 'ANK'));
@@ -309,15 +376,19 @@
     let armTO = -deg(Math.atan2(tv[0] * av[1] - tv[1] * av[0], tv[0] * av[0] + tv[1] * av[1])) * dir; if (armTO < -90) armTO += 360;
     const ext = Math.max(...[a - 1, a, main.s].map(knee)), le = idxAt(S, T[b] + 0.5); let landKnee = 180, il = b; for (let i = b; i <= le; i++) if (knee(i) < landKnee) { landKnee = knee(i); il = i; }
     const fouls = [], footX = i => (P[i][29][0] + P[i][30][0]) / 2;
+    // 무릎을 굽힌 채 내려오면 체공 시간이 늘어 기록이 실제보다 높게 나온다 (센서판도 같음)
+    const tdKnee = Math.max(knee(b), knee(main.e)), hipDrop = (hipY(b) - hipY(a)) / H * 100;
+    if (tdKnee < 150 || hipDrop > 4) fouls.push({ code: 'tuck', sev: 'warn', label: '무릎 굽힌 채 착지', detail: `닿는 순간 무릎 ${round(tdKnee)}°. 다리를 굽혀 내려오면 체공 시간이 늘어 기록이 실제보다 높게 나옵니다. 발끝부터 다리를 편 채 착지하세요.` });
     if (Math.abs(footX(w0) - footX(a)) > 0.08 * H) fouls.push({ code: 'step', sev: 'warn', label: '도움닫기(스텝) 의심', detail: '점프 전 1.5초 안에 발 위치가 바뀌었습니다.' });
     if (drift > 30) fouls.push({ code: 'drift', sev: 'warn', label: '제자리 이탈', detail: `뛴 자리에서 약 ${round(drift)}cm 벗어나 착지했습니다.` });
     const R = cfg.ref, metrics = [
       metric('knee', '반동 깊이 (가장 깊이 앉았을 때 무릎 각도)', knee(deep), '°', R.knee, 0, T[deep], JK), metric('armTO', '도약 순간 팔 높이 (몸통 기준)', armTO, '°', R.armTO, 0, T[main.s], JA),
       metric('ext', '도약 순간 무릎 펴짐', ext, '°', R.ext, 0, T[a], JK), metric('drift', '착지 위치 이탈', drift, 'cm', R.drift, 0, T[b]), metric('landKnee', '착지 무릎 굽힘 (최소 각도)', landKnee, '°', R.landKnee, 0, T[il], JK),
-      metric('flightH', '체공 시간으로 계산한 높이', flightH, 'cm', null, 1), metric('flight', '체공 시간', Tf, '초', null, 2)];
-    return { ok: true, event: 'sargent', record: { value: round(rise), unit: 'cm', valid: true }, fouls, metrics, tips: tipsFor(metrics, SARGENT_TIPS),
-      notes: ['서 있을 때보다 엉덩이가 올라간 높이로 쟀습니다. 손끝 도달 높이 차와 같은 기준입니다.', '키 입력값으로 축척을 잡습니다. 키가 정확해야 합니다.'],
-      events: [{ t: T[deep], label: '최대 반동' }, { t: T[main.s], label: '도약' }, { t: T[top], label: '최고점' }, { t: T[b], label: '착지' }], anchor: T[main.s] };
+      metric('rise', '엉덩이가 올라간 높이 (참고, 키 축척)', rise, 'cm', null, 1), metric('flight', '체공 시간', Tf, '초', null, 3)];
+    const fps = Math.round(1 / dt0), dH = 2 * 122.6 * Tf * Terr;
+    return { ok: true, event: 'sargent', record: { value: round(flightH), unit: 'cm', valid: true }, fouls, metrics, tips: tipsFor(metrics, SARGENT_TIPS),
+      notes: [`체공 시간 ${round(Tf, 3)}초로 높이를 계산했습니다 (높이 = 9.81 × 체공시간² ÷ 8, 센서판과 같은 식). 키 입력이나 기준선이 필요 없습니다.`, `초당 ${fps}장 영상이라 체공 시간 오차가 약 ±${round(Terr * 1000)}ms, 높이로 ±${round(dH, 1)}cm입니다.${fps < 50 ? ' 60fps로 찍으면 오차가 절반으로 줄어듭니다.' : ''}`],
+      events: [{ t: T[deep], label: '최대 반동' }, { t: tOff, label: '발 떨어짐' }, { t: T[top], label: '최고점' }, { t: tOn, label: '발 닿음' }], anchor: tOff };
   }
 
   /* ───────── 유연성 (좌전굴) ───────── */
@@ -411,6 +482,6 @@
     sargent: [['반동 깊이와 점프 높이 (PMC11208864)', 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11208864']],
     run: [['180° 방향 전환을 빠르게 하는 요인 (Dos\'Santos 외, 2020)', 'https://e-space.mmu.ac.uk/626014'], ['세계 정상급 단거리 선수의 스타트 (Walker 외, 2021)', 'https://researchportal.bath.ac.uk/en/publications/kinematic-factors-associated-with-start-performance-in-world-clas/']]
   };
-  const api = { BASIS, DEF, prep, bodyH, analyzeJump, analyzeSitup, analyzeSargent, analyzeFlex, analyzeRun, pivots, ang };
+  const api = { BASIS, DEF, prep, bodyH, floorModel, analyzeJump, analyzeSitup, analyzeSargent, analyzeFlex, analyzeRun, pivots, ang };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Analysis = api;
 })(typeof self !== 'undefined' ? self : this);

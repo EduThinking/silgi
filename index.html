@@ -289,7 +289,7 @@ const FIGS = {
 };
 const EVENTS = [
   { id: 'jump', ico: '🤾', name: '제자리멀리뛰기', what: '거리, 출발선·착지 파울, 반동과 팔 스윙', on: true, fps: 30, fn: 'analyzeJump', dec: 1,
-    fig: 'jump', guide: ['폰을 가로로 눕혀 삼각대나 의자에 고정합니다. 높이는 허리쯤(약 1m)입니다.', '뛰는 방향의 정확히 옆에서 찍습니다. 출발선에서 뛰는 쪽으로 1.5m 간 지점의 옆, 4~5m 떨어진 자리가 좋습니다.', '광각(0.5배)은 화면이 휘어 거리가 틀어집니다. 기본 1배로 찍습니다.', '출발선부터 착지 지점 너머까지 한 화면에 담습니다. 발이 잘리면 거리를 못 잽니다.', '출발선에서 2m 되는 바닥에 테이프를 붙여 두면 거리 기준으로 씁니다.', '준비 자세부터 착지 후 1초까지 찍습니다. 60fps면 더 정확합니다.'] },
+    fig: 'jump', guide: ['폰을 가로로 눕혀 삼각대나 의자에 고정합니다. 높이는 허리쯤(약 1m)입니다.', '뛰는 방향의 정확히 옆에서 찍습니다. 출발선에서 뛰는 쪽으로 1.5m 간 지점의 옆, 4~5m 떨어진 자리가 좋습니다.', '광각(0.5배)은 화면이 휘어 거리가 틀어집니다. 기본 1배로 찍습니다.', '출발선부터 착지 지점 너머까지 한 화면에 담습니다. 발이 잘리면 거리를 못 잽니다.', '출발선과, 출발선에서 2m 되는 자리에 테이프를 뛰는 방향과 직각으로 30cm 이상 붙입니다. 두 테이프의 양 끝이 화면에 보여야 "테이프 4점"으로 정확히 잽니다.', '준비 자세부터 착지한 뒤 <b>똑바로 일어설 때까지</b> 찍습니다. 기록은 일어섰을 때 뒤꿈치 자리로 잽니다. 일어설 때 머리까지 화면에 들어오게 하세요.', '60fps면 더 정확합니다.'] },
   { id: 'situp', ico: '💪', name: '윗몸일으키기', what: '기준 충족한 횟수만 카운트, 무효 사유, 페이스', on: true, fps: 15, fn: 'analyzeSitup', dec: 0,
     guide: ['폰을 가로로 눕혀 몸 옆 3m쯤, 바닥에서 30~50cm 높이에 고정합니다.', '머리부터 발끝까지 화면에 담습니다.', '발을 잡아 주는 사람이 무릎과 엉덩이를 가리지 않게 합니다.', '시작 전 누운 자세부터 끝날 때까지 끊지 않고 찍습니다.'] },
   { id: 'run10', ico: '🏃', name: '10m 왕복달리기', what: '출발선 통과~복귀 시간, 스타트, 턴', on: true, fps: 30, fn: 'analyzeRun', dist: 10, dec: 2, lower: true, fig: 'run', guide: RUN_GUIDE },
@@ -307,8 +307,10 @@ const store = {
 const app = { ev: null, me: null, ref: null, cfg: store.get('pe.cfg', {}), name: store.get('pe.name', '') };
 const cfgInit = new Set();
 const cfgOf = (id) => cfgInit.has(id) ? app.cfg[id] : (cfgInit.add(id), app.cfg[id] = Object.assign({ calibMode: 'line', markCm: 200, heightCm: 170, refHeightCm: 175, fps: null }, JSON.parse(JSON.stringify(Analysis.DEF[id])), app.cfg[id], Analysis.DEF[id].ref ? { ref: JSON.parse(JSON.stringify(Analysis.DEF[id].ref)) } : {}));
-const needPts = () => { const c = cfgOf(app.ev.id); return c.calibMode === 'lines' ? [2, 2] : c.calibMode !== 'line' ? [0, 0] : app.ev.id === 'jump' ? [2, 2] : app.ev.dist ? [1, 2] : [0, 0]; };
+const NUMS = ['①', '②', '③', '④'];
+const needPts = () => { const c = cfgOf(app.ev.id); return c.calibMode === 'tape4' && app.ev.id === 'jump' ? [4, 4] : c.calibMode === 'lines' ? [2, 2] : c.calibMode !== 'line' ? [0, 0] : app.ev.id === 'jump' ? [2, 2] : app.ev.dist ? [1, 2] : [0, 0]; };
 const LINES_UI = (pl) => pickUI(pl, ['머리끝', '발바닥'], ['<b>① 머리끝</b>: 똑바로 서 있는 장면에서 정수리 높이를 찍습니다. 묶은 머리나 모자는 빼고 맞춥니다. 맞으면 위의 ②를 누르세요.', '<b>② 발바닥</b>: 신발 바닥이 땅에 닿는 높이를 찍습니다. 키 칸에는 신발을 신은 키(맨발 키에 2~3cm 더한 값)를 넣어야 맞습니다.']);
+const TAPE_HELP = (c) => ['<b>① 출발선 가까운 끝</b>: 출발선 테이프에서 <b>발끝이 놓이는 쪽 가장자리</b>의, 카메라에 가까운 끝을 찍습니다.', '<b>② 출발선 먼 끝</b>: 같은 가장자리의 카메라에서 먼 끝을 찍습니다. ①과 ②를 이은 선이 테이프 가장자리와 겹쳐야 합니다.', `<b>③ 거리선 가까운 끝</b>: ${c.markCm}cm 테이프에서 <b>${c.markCm}cm가 끝나는 쪽 가장자리</b>의 카메라에 가까운 끝을 찍습니다.`, '<b>④ 거리선 먼 끝</b>: 같은 가장자리의 먼 끝을 찍습니다. 테이프가 길수록(30cm 이상) 정확합니다.'];
 const saveCfg = () => store.set('pe.cfg', app.cfg);
 if (store.get('pe.cfgv', 0) < 2) { if (app.cfg.jump) app.cfg.jump.calibMode = 'height'; store.set('pe.cfgv', 2); saveCfg(); }
 
@@ -416,7 +418,8 @@ class Player {
       g.fillStyle = '#FFD164'; [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32].forEach(i => { const p = fr.p[i]; if (p[2] < 0.3) return; g.beginPath(); g.arc(p[0] * s, p[1] * s, lw * 1.3, 0, 7); g.fill(); });
     }
     g.font = `700 ${Math.round(lw * 6.5)}px sans-serif`; g.textBaseline = 'bottom';
-    this.pts.forEach((p, i) => { g.strokeStyle = '#FFD164'; g.lineWidth = this.picking && i === this.act ? lw * 1.8 : lw; g.beginPath(); g.arc(p.x * s, p.y * s, lw * 3, 0, 7); g.stroke(); g.beginPath(); g.moveTo(p.x * s, p.y * s - lw * 6); g.lineTo(p.x * s, p.y * s + lw * 6); g.stroke(); g.fillStyle = '#FFD164'; g.fillText(i ? '②' : '①', p.x * s + lw * 4, p.y * s - lw * 4); });
+    this.pts.forEach((p, i) => { g.strokeStyle = '#FFD164'; g.lineWidth = this.picking && i === this.act ? lw * 1.8 : lw; g.beginPath(); g.arc(p.x * s, p.y * s, lw * 3, 0, 7); g.stroke(); g.beginPath(); g.moveTo(p.x * s, p.y * s - lw * 6); g.lineTo(p.x * s, p.y * s + lw * 6); g.stroke(); g.fillStyle = '#FFD164'; g.fillText(NUMS[i] || '', p.x * s + lw * 4, p.y * s - lw * 4); });
+    if (this.pts.length >= 2 && app.ev && app.ev.id === 'jump' && cfgOf('jump').calibMode === 'tape4') [[0, 1], [2, 3]].forEach(([a, b]) => { const p = this.pts[a], q = this.pts[b]; if (!p || !q) return; g.strokeStyle = '#FFD164'; g.lineWidth = lw; g.setLineDash([lw * 3, lw * 2]); g.beginPath(); g.moveTo(p.x * s, p.y * s); g.lineTo(q.x * s, q.y * s); g.stroke(); g.setLineDash([]); });
     const r = this.result;
     if (r && r.ok && r.geom) { // 제멀: 출발선~착지 거리선
       const G = r.geom, gy = (x) => G.k * x - G.base, x1 = G.lineX, x2 = G.landX;
@@ -452,7 +455,7 @@ function drawLoupe(g, vid, o, cw) { // 손가락에 가려지는 자리를 3배�
 }
 function pickUI(pl, labels, helps) {
   const a = Math.min(pl.act || 0, pl.pts.length);
-  return `<div class="seg" role="group" aria-label="찍을 지점">${labels.map((l, i) => `<button data-act="${i}" aria-pressed="${a === i}" ${i > pl.pts.length ? 'disabled' : ''}>${i ? '②' : '①'} ${l}${pl.pts[i] ? ' ✓' : ''}</button>`).join('')}</div>
+  return `<div class="seg" role="group" aria-label="찍을 지점">${labels.map((l, i) => `<button data-act="${i}" aria-pressed="${a === i}" ${i > pl.pts.length ? 'disabled' : ''}>${NUMS[i]} ${l}${pl.pts[i] ? ' ✓' : ''}</button>`).join('')}</div>
     <p class="small">${helps[a]}</p>
     <div class="row"><span class="small muted">조금씩 옮기기</span>${[['◀', -1, 0], ['▶', 1, 0], ['▲', 0, -1], ['▼', 0, 1]].map(n => `<button class="nudge" data-nx="${n[1]}" data-ny="${n[2]}" aria-label="${n[0]}">${n[0]}</button>`).join('')}<button class="ghost" id="clrPts">모두 지우기</button></div>
     <p class="small muted">영상을 누르면 지금 고른 점만 그 자리로 옮겨집니다. 누른 채 끌면 따라오고, 구석의 확대경으로 자리를 확인할 수 있습니다.</p>`;
@@ -510,6 +513,7 @@ function optsFor(pl, isRef) {
   if (id === 'situp') return { cfg: Object.assign({}, c, isRef ? { startT: null } : pl.liveStart ? { startT: 0 } : {}) };
   if (app.ev.dist) { const ln = c.calibMode === 'line'; return { cfg: c, heightCm: h, dist: app.ev.dist, auto: !ln, lineX: ln && pl.pts[0] ? pl.pts[0].x : NaN, farX: ln && pl.pts[1] ? pl.pts[1].x : NaN }; }
   if (!isRef && c.calibMode === 'lines' && pl.pts.length === 2) return { cfg: c, heightCm: h, pxPerCm: Math.abs(pl.pts[1].y - pl.pts[0].y) / c.heightCm };
+  if (id === 'jump' && !isRef && c.calibMode === 'tape4' && pl.pts.length === 4) return { cfg: c, floor: { pts: pl.pts.map(q => ({ x: q.x, y: q.y })), cm: c.markCm } };
   if (id === 'jump' && !isRef && c.calibMode === 'line' && pl.pts.length === 2) {
     const [p, q] = pl.pts, d = Math.hypot(q.x - p.x, q.y - p.y);
     return { cfg: c, pxPerCm: d / c.markCm, line: { x: p.x }, ground: { k: (q.y - p.y) / ((q.x - p.x) || 1e-9) } };
@@ -524,7 +528,7 @@ function compute(pl, isRef) {
 async function run() {
   const pl = app.me, c = cfgOf(app.ev.id), errEl = $('#runErr'), prog = $('#prog');
   errEl.classList.add('hidden');
-  if (pl.pts.length < needPts()[0]) { errEl.textContent = c.calibMode === 'lines' ? '서 있는 장면에서 머리끝과 발바닥 높이를 먼저 찍어 주세요.' : app.ev.dist ? '영상 위에서 출발선 위치를 먼저 찍어 주세요.' : '영상 위에서 출발선과 기준점 두 곳을 먼저 찍어 주세요. 표시가 없으면 "키로 어림"을 고르세요.'; errEl.classList.remove('hidden'); return; }
+  if (pl.pts.length < needPts()[0]) { errEl.textContent = c.calibMode === 'tape4' ? '출발선과 거리선 테이프의 가까운 끝·먼 끝 네 곳을 먼저 찍어 주세요.' : c.calibMode === 'lines' ? '서 있는 장면에서 머리끝과 발바닥 높이를 먼저 찍어 주세요.' : app.ev.dist ? '영상 위에서 출발선 위치를 먼저 찍어 주세요.' : '영상 위에서 출발선과 기준점 두 곳을 먼저 찍어 주세요. 표시가 없으면 "키로 어림"을 고르세요.'; errEl.classList.remove('hidden'); return; }
   $('#btnRun').disabled = true; prog.classList.remove('hidden'); prog.value = 0;
   try {
     await extract(pl, c.fps || app.ev.fps, (v) => { prog.value = v; $('#runHint').textContent = '관절 추적 중 ' + Math.round(v * 100) + '%'; });
@@ -594,11 +598,12 @@ function numField(id, label, key, step, sfx) { const c = cfgOf(app.ev.id); retur
 function renderSetup() {
   const c = cfgOf(app.ev.id), host = $('#setup'), pl = app.me;
   if (app.ev.id === 'jump') {
-    const line = c.calibMode === 'line', lines = c.calibMode === 'lines';
+    const line = c.calibMode === 'line', lines = c.calibMode === 'lines', tape = c.calibMode === 'tape4';
     host.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">
-      <div class="seg" role="group" aria-label="거리 기준"><button data-mode="height" aria-pressed="${!line && !lines}">키로 간편</button><button data-mode="lines" aria-pressed="${lines}">측정선 2개</button><button data-mode="line" aria-pressed="${line}">출발선·거리 찍기</button></div>
+      <div class="seg" role="group" aria-label="거리 기준"><button data-mode="tape4" aria-pressed="${tape}">테이프 4점 (정확)</button><button data-mode="line" aria-pressed="${line}">출발선·거리</button><button data-mode="lines" aria-pressed="${lines}">측정선 2개</button><button data-mode="height" aria-pressed="${!line && !lines && !tape}">키로 간편</button></div>
+      ${tape ? pickUI(pl, ['출발선 가까운 끝', '출발선 먼 끝', '거리선 가까운 끝', '거리선 먼 끝'], TAPE_HELP(c)) + `<div class="set">${numField('markCm', '출발선에서 거리선까지 실제 거리', 'markCm', 10, 'cm')}${numField('shoeCm', '신발 보정 (관절 점과 신발 끝 차이)', 'shoeCm', 0.5, 'cm')}</div><p class="small muted">테이프 두 줄이 화면에서 위쪽으로 모이는 각도를 써서, 카메라에서 가깝게 섰든 멀게 섰든 같은 기준으로 잽니다. 기록은 출발 발끝부터 착지 후 똑바로 섰을 때 뒤꿈치까지입니다.</p>` : ''}
       ${lines ? LINES_UI(pl) + `<div class="set">${numField('heightCm', '신발 신은 키', 'heightCm', 1, 'cm')}</div>` : ''}
-      ${lines ? '' : line ? pickUI(pl, ['출발선', c.markCm + 'cm 표시'], ['<b>① 출발선</b>: 선에서 <b>뛰는 쪽 가장자리</b>가 바닥에 닿는 곳을 찍습니다. 두 발끝이 화면에서 어긋나 보이면 <b>카메라에 가까운 쪽 발끝</b>에 맞추세요. 어긋난 만큼은 자동으로 보정합니다. 자리가 맞으면 위의 ②를 누르세요.', '<b>② 거리 표시</b>: 출발선에서 뛰는 방향으로 잰 테이프 끝이 바닥에 닿는 곳을 찍습니다. 수험생이 뛰는 줄 위에 있어야 거리가 정확합니다.']) + `<div class="set">${numField('markCm', '①에서 ②까지 실제 거리', 'markCm', 10, 'cm')}</div>`
+      ${lines || tape ? '' : line ? pickUI(pl, ['출발선', c.markCm + 'cm 표시'], ['<b>① 출발선</b>: 선에서 <b>뛰는 쪽 가장자리</b>가 바닥에 닿는 곳을 찍습니다. 두 발끝이 화면에서 어긋나 보이면 <b>카메라에 가까운 쪽 발끝</b>에 맞추세요. 어긋난 만큼은 자동으로 보정합니다. 자리가 맞으면 위의 ②를 누르세요.', '<b>② 거리 표시</b>: 출발선에서 뛰는 방향으로 잰 테이프 끝이 바닥에 닿는 곳을 찍습니다. 수험생이 뛰는 줄 위에 있어야 거리가 정확합니다.']) + `<div class="set">${numField('markCm', '①에서 ②까지 실제 거리', 'markCm', 10, 'cm')}</div>`
         : `<div class="set">${numField('heightCm', '수험생 키', 'heightCm', 1, 'cm')}</div><p class="small muted">몸 길이로 화면 축척을 어림합니다. 오차가 5% 안팎이고 출발선 밟기는 판정하지 못합니다.</p>`}
       <div class="set">${numField('lineTolCm', '출발선 허용 오차', 'lineTolCm', 1, 'cm')}
         <label for="fps">추적 정밀도<select id="fps" data-k="fps"><option value="30">초당 30장 (기본)</option><option value="60">초당 60장 (60fps 영상)</option></select></label></div></div>`;
