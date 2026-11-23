@@ -417,6 +417,7 @@
     const kneeMin = quant(win.map(i => ang(J(i, 'HIP'), J(i, 'KNEE'), J(i, 'ANK'))), 0.1), hipAngle = median(win.map(i => ang(J(i, 'SH'), J(i, 'HIP'), J(i, 'KNEE'))));
     const sway = quant(win.map(i => reach[i]), 0.9) - quant(win.map(i => reach[i]), 0.1), fouls = [];
     if (kneeMin < cfg.kneeMin) fouls.push({ code: 'knee', sev: 'bad', label: '무릎 굽힘', detail: `측정 중 무릎 각도가 ${round(kneeMin)}°까지 굽었습니다. (기준 ${cfg.kneeMin}° 이상)` });
+    if (tape && Math.abs(sole - heelX) > 0.12 * H) fouls.push({ code: 'tape', sev: 'bad', label: '테이프 위치가 발과 맞지 않음', detail: '찍은 테이프 끝이 발에서 너무 멉니다. 거울에 비친 테이프나 다른 빨간 물체를 찍었을 수 있습니다. 측정대 옆면의 실제 테이프 양 끝을 다시 찍어 주세요.' });
     if (!held) fouls.push({ code: 'hold', sev: 'warn', label: '멈춰서 버틴 시간이 짧음', detail: `가장 멀리 민 자리에서 약 ${round(heldSec, 1)}초 머물렀습니다. 시험에서는 ${cfg.holdSec}초 이상 멈춰야 인정되는 경우가 많습니다. 기록은 가장 멀리 민 자리로 표시했습니다.` });
     const R = cfg.ref, metrics = [metric('hipAngle', '상체를 숙인 정도 (숫자가 작을수록 깊이 숙인 것)', hipAngle, '°', R.hipAngle, 0, T[bi], JH), metric('kneeAngle', '무릎 펴짐 (가장 많이 굽었을 때)', kneeMin, '°', R.kneeAngle, 0, T[bi], JK), metric('sway', '버티는 동안 흔들린 정도', sway, 'cm', R.sway, 1), metric('peak', '잠깐이라도 가장 멀리 닿은 거리', peak, 'cm', null, 1, T[reach.indexOf(peak)])];
     const tips = [];
