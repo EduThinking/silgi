@@ -419,7 +419,47 @@
       events: [{ t: T[bi], label: '유지 시작' }, { t: T[bj], label: '유지 끝' }], anchor: T[bi] };
   }
 
+  /* ───────── 제자리멀리뛰기 표준 동작 (연구에 나온 권장 각도로 만든 관절 움직임. 실제 사람의 영상이 아니다) ───────── */
+  function synthJump() {
+    const Hpx = 420, fps = 30, GY = 900, X0 = 420, R = Math.PI / 180, G = 9.81 / 1.75;
+    const L = { thigh: .245, shank: .245, trunk: .30, head: .13, uarm: .17, farm: .23 };
+    // tr 상체 기울기, th 허벅지, sh 정강이(수직 아래 기준, 앞이 +), ft 발끝 내림, ar 팔(아래 기준, 앞이 +), el 팔꿈치
+    const K = [
+      { t: 0.00, tr: 3, th: 3, sh: -3, ft: 0, ar: 150, el: 10, a: 'toe' }, { t: 0.40, tr: 22, th: 30, sh: -20, ft: 0, ar: 30, el: 15, a: 'toe' },
+      { t: 0.68, tr: 50, th: 60, sh: -32, ft: 0, ar: -115, el: 15, a: 'toe' }, { t: 0.92, tr: 32, th: -28, sh: -32, ft: 55, ar: 140, el: 10, a: 'toe' },
+      { t: 1.10, tr: 25, th: 40, sh: -70, ft: 25, ar: 125, el: 10 }, { t: 1.28, tr: 40, th: 95, sh: -15, ft: 0, ar: 75, el: 10 }, { t: 1.42, tr: 55, th: 92, sh: 42, ft: -30, ar: 15, el: 5 },
+      { t: 1.48, tr: 55, th: 86, sh: 40, ft: -32, ar: -30, el: 5, a: 'heel' }, { t: 1.72, tr: 55, th: 60, sh: -35, ft: 0, ar: 80, el: 15, a: 'heel' }, { t: 2.20, tr: 12, th: 10, sh: -8, ft: 0, ar: 20, el: 10, a: 'heel' }];
+    const rot = (x, y, d) => [x * Math.cos(d * R) + y * Math.sin(d * R), -x * Math.sin(d * R) + y * Math.cos(d * R)];
+    const pose = (k) => { // 엉덩이를 (0,0)에 둔 자세. y는 위가 +
+      const kn = [L.thigh * Math.sin(k.th * R), -L.thigh * Math.cos(k.th * R)], an = [kn[0] + L.shank * Math.sin(k.sh * R), kn[1] - L.shank * Math.cos(k.sh * R)];
+      const he = rot(-.05, -.04, k.ft), to = rot(.15, -.04, k.ft), sh = [L.trunk * Math.sin(k.tr * R), L.trunk * Math.cos(k.tr * R)];
+      const el = [sh[0] + L.uarm * Math.sin(k.ar * R), sh[1] - L.uarm * Math.cos(k.ar * R)], wr = [el[0] + L.farm * Math.sin((k.ar + k.el) * R), el[1] - L.farm * Math.cos((k.ar + k.el) * R)];
+      return { hip: [0, 0], kn, an, he: [an[0] + he[0], an[1] + he[1]], to: [an[0] + to[0], an[1] + to[1]], sh, el, wr, no: [sh[0] + L.head * (Math.sin(k.tr * .5 * R) + .25), sh[1] + L.head * Math.cos(k.tr * .5 * R)] };
+    };
+    const at = (t) => { let i = 0; while (i < K.length - 2 && t > K[i + 1].t) i++; const A = K[i], B = K[i + 1], s0 = Math.max(0, Math.min(1, (t - A.t) / (B.t - A.t))), s = s0 * s0 * (3 - 2 * s0), o = {}; ['tr', 'th', 'sh', 'ft', 'ar', 'el'].forEach(q => o[q] = A[q] + (B[q] - A[q]) * s); return o; };
+    const TO = K[3], LD = K[7], pT = pose(TO), pL = pose(LD), hipT = [-pT.to[0], -pT.to[1]], Tf = LD.t - TO.t, fly = 0.88, hipL = [hipT[0] + fly, -pL.he[1]], D = hipL[0] + pL.he[0];
+    const frames = [];
+    for (let i = 0; i <= Math.round(K[K.length - 1].t * fps) + 15; i++) {
+      const t = Math.min(i / fps, K[K.length - 1].t), k = at(t), P = pose(k); let hip;
+      if (t <= TO.t) hip = [-P.to[0], Math.max(-P.to[1], -P.he[1])];
+      else if (t < LD.t) { const s = (t - TO.t) / Tf; hip = [hipT[0] + fly * s, hipT[1] + (hipL[1] - hipT[1]) * s + .5 * G * Tf * Tf * s * (1 - s)]; }
+      else hip = [D - P.he[0], Math.max(-P.he[1], -P.to[1])];
+      const px = (q, dx) => [Math.round((X0 + (hip[0] + q[0]) * Hpx + (dx || 0)) * 10) / 10, Math.round((GY - (hip[1] + q[1]) * Hpx) * 10) / 10, 1], p = [];
+      for (let j = 0; j < 33; j++) p.push(px(P.no));
+      [[11, 'sh'], [13, 'el'], [15, 'wr'], [23, 'hip'], [25, 'kn'], [27, 'an'], [29, 'he'], [31, 'to']].forEach(([j, n]) => { p[j] = px(P[n], 0); p[j + 1] = px(P[n], 3); });
+      frames.push({ t: i / fps + 1, p });
+    }
+    return { frames, takeoff: TO.t + 1, land: LD.t + 1, W: 1400, H: 1000, heightCm: 175, hPx: Hpx, distCm: Math.round(D * 175) };
+  }
+
   /* ───────── 10m·20m 왕복달리기 ───────── */
+  const RUN_LOSS = {
+    start: { label: '출발해서 속도를 올리는 구간 (첫 구간 앞 1/3)', fix: '첫 3~4걸음은 머리부터 발목까지 일직선으로 앞으로 기울이고 바닥을 뒤로 밀어냅니다. 걸음을 일부러 크게 벌리지 말고 짧고 강하게 딛으세요.', ex: ['월 드릴(벽 밀고 무릎 올리기) 3×10', '푸시업 스타트 5회', '슬레드·밴드 저항 달리기 5×10m'] },
+    reacc: { label: '턴하고 다시 속도를 올리는 구간 (턴 직후 1/3)', fix: '선을 밟은 발로 바닥을 강하게 밀어내고, 첫 두 걸음은 몸을 낮춘 채 짧고 빠르게 딛습니다. 턴하면서 상체가 먼저 서면 다시 가속하는 데 시간이 걸립니다.', ex: ['5-10-5 프로 어질리티 6회', '래터럴 바운드 3×8', '스케이터 점프 3×10'] },
+    mid: { label: '가운데 달리는 구간 (가운데 1/3)', fix: '10~20m 왕복은 가운데에서도 계속 속도를 올리는 중이어야 합니다. 팔을 크게 치고 무릎을 앞으로 끌어올려 걸음 수를 늘리세요.', ex: ['슬레드·밴드 저항 달리기 5×10m', '플라잉 10m 달리기 5회'] },
+    decel: { label: '턴에 들어가며 속도를 줄이는 구간 (턴 직전 1/3)', fix: '너무 일찍 속도를 줄이고 있습니다. 선 두 걸음 전까지는 그대로 달리고, 마지막 두 걸음에서 엉덩이를 낮추며 짧게 멈추세요.', ex: ['감속 스텝 드릴(3보 감속 후 정지) 3×6', '사이드 런지 3×10', '낮은 자세 셔플 3×10m'] },
+    finish: { label: '마지막 도착 구간 (마지막 1/3)', fix: '선을 지나 3m 뒤를 결승선이라고 생각하고 속도를 줄이지 말고 통과하세요.', ex: ['선 통과 후 5m 더 달리기 반복 6회'] }
+  };
   const RUN_TIPS = {
     'lean:low': { p: '출발하자마자 상체가 섭니다. 가속 구간에서 힘이 위로 빠집니다.', fix: '첫 3~4걸음은 머리부터 발목까지 일직선으로 앞으로 기울인 채 바닥을 뒤로 밀어내세요.', ex: ['월 드릴(벽 밀고 무릎 올리기) 3×10', '푸시업 스타트 5회', '슬레드·밴드 저항 달리기 5×10m'] },
     'lean:high': { p: '출발 때 상체가 너무 숙여져 첫걸음이 짧아집니다.', fix: '시선을 3m 앞 바닥에 두고, 넘어지지 않을 만큼만 기울이세요.', ex: ['폴링 스타트 5회', '3점 스타트 반복 5×5m'] },
@@ -472,7 +512,24 @@
     for (let i = si; i < n; i++) if (near(i) && u[i - 1] < 200 && u[i] >= 200) { metrics.push(metric('first2m', '출발선에서 첫 2m까지', cross(i, 200) - tLine, '초', null, 2)); break; }
     metrics.push(metric('react', '첫 움직임부터 출발선 통과까지', Math.max(0, tLine - tMove), '초', null, 2));
     marks.slice(1).forEach((t, k) => metrics.push(metric('split' + k, `${k + 1}번째 왕복`, t - marks[k], '초', null, 2)));
-    return { ok: true, event: id, record: { value: round(tFin - tStart, 2), unit: '초', valid: !fouls.some(f => f.sev === 'bad') }, fouls, metrics, tips: tipsFor(metrics, RUN_TIPS), events, anchor: tStart,
+    // ── 구간별 속도: 출발선↔반대편 한 번을 한 구간으로 보고, 구간마다 앞·가운데·뒤 1/3로 나눠 어디서 시간을 잃는지 본다
+    const bnd = [{ t: tLine, u: 0, i: si }]; his.forEach((hi, k) => { bnd.push({ t: T[hi], u: u[hi], i: hi }); if (k < his.length - 1) { let li = hi; for (let i = hi; i <= his[k + 1]; i++) if (u[i] < u[li]) li = i; bnd.push({ t: T[li], u: u[li], i: li }); } }); bnd.push({ t: tFin, u: 0, i: fi });
+    const sections = []; for (let k = 0; k < bnd.length - 1; k++) {
+      const A = bnd[k], B = bnd[k + 1], sg = Math.sign(B.u - A.u) || 1, cm = Math.abs(B.u - A.u), sec = B.t - A.t; if (cm < 200 || sec <= 0) continue;
+      const at = (c) => { for (let i = Math.max(1, A.i); i <= B.i; i++) if (near(i) && (u[i] - c) * sg >= 0 && (u[i - 1] - c) * sg < 0) return cross(i, c); return null; };
+      const t1 = at(A.u + (B.u - A.u) / 3), t2 = at(A.u + (B.u - A.u) * 2 / 3), ok = t1 != null && t2 != null && t1 > A.t && t2 > t1 && B.t > t2, sp = (d0, d1) => round(cm / 3 / 100 / (d1 - d0), 2);
+      sections.push({ n: sections.length + 1, out: sg > 0, t0: round(A.t, 2), t1: round(B.t, 2), sec: round(sec, 2), cm: round(cm), mps: round(cm / 100 / sec, 2), ph: ok ? [sp(A.t, t1), sp(t1, t2), sp(t2, B.t)] : null, pt: ok ? [t1 - A.t, t2 - t1, B.t - t2] : null });
+    }
+    const loss = []; const full = sections.filter(s => s.ph);
+    if (full.length >= 2) {
+      const vmax = Math.max(...full.map(s => Math.max(...s.ph))), L = { start: 0, reacc: 0, mid: 0, decel: 0, finish: 0 }, lastN = sections[sections.length - 1].n;
+      full.forEach(s => { const ideal = s.cm / 3 / 100 / vmax, d = s.pt.map(x => Math.max(0, x - ideal)); L[s.n === 1 ? 'start' : 'reacc'] += d[0]; L.mid += d[1]; L[s.n === lastN ? 'finish' : 'decel'] += d[2]; });
+      const sl = sections.slice().sort((p, q) => p.mps - q.mps)[0], fa = sections.slice().sort((p, q) => q.mps - p.mps)[0];
+      Object.keys(L).forEach(k => { if (L[k] > 0.03) loss.push(Object.assign({ type: k, sec: round(L[k], 2) }, RUN_LOSS[k])); }); loss.sort((p, q) => q.sec - p.sec);
+      if (sl.n !== fa.n && (fa.mps - sl.mps) / fa.mps > 0.06) loss.slow = { n: sl.n, mps: sl.mps, best: fa.n, bestMps: fa.mps, late: sl.n > sections.length / 2 };
+      loss.vmax = round(vmax, 2);
+    }
+    return { ok: true, event: id, record: { value: round(tFin - tStart, 2), unit: '초', valid: !fouls.some(f => f.sev === 'bad') }, fouls, metrics, tips: tipsFor(metrics, RUN_TIPS), events, anchor: tStart, sections, loss, lossSlow: loss.slow || null, vmax: loss.vmax || null,
       notes: [cfg.startMode === 'move' ? '첫 움직임부터 출발선 복귀까지 잰 시간입니다.' : '몸통이 출발선을 넘은 순간부터 다시 넘어 돌아온 순간까지입니다.', `프레임 간격 ${round(dt * 1000)}ms, 오차 약 ±${round(dt / 2, 2)}초`, far ? '양쪽 선 사이 거리로 축척을 잡았습니다.' : '키로 축척을 잡아 턴 거리 판정은 어림값입니다.'].concat(o.autoLine ? ['출발선을 찍지 않아 출발 자세의 앞발 끝을 출발선으로 봤습니다.'] : []),
       vlines: [{ x: o.lineX, label: '출발선' }].concat(far ? [{ x: o.farX, label: '반대편' }] : []) };
   }
@@ -482,6 +539,6 @@
     sargent: [['반동 깊이와 점프 높이 (PMC11208864)', 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11208864']],
     run: [['180° 방향 전환을 빠르게 하는 요인 (Dos\'Santos 외, 2020)', 'https://e-space.mmu.ac.uk/626014'], ['세계 정상급 단거리 선수의 스타트 (Walker 외, 2021)', 'https://researchportal.bath.ac.uk/en/publications/kinematic-factors-associated-with-start-performance-in-world-clas/']]
   };
-  const api = { BASIS, DEF, prep, bodyH, floorModel, analyzeJump, analyzeSitup, analyzeSargent, analyzeFlex, analyzeRun, pivots, ang };
+  const api = { BASIS, DEF, prep, bodyH, floorModel, analyzeJump, analyzeSitup, analyzeSargent, analyzeFlex, analyzeRun, synthJump, pivots, ang };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Analysis = api;
 })(typeof self !== 'undefined' ? self : this);

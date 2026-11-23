@@ -135,6 +135,7 @@ progress{width:100%;height:10px;accent-color:var(--accent)}
 .gauge .band{position:absolute;top:0;bottom:0;background:#9FE0BC;border-radius:5px}
 .gauge .me,.gauge .rf{position:absolute;top:-4px;width:5px;height:18px;border-radius:3px;background:var(--ink);transform:translateX(-50%)}
 .gauge .rf{background:var(--accent);height:14px;top:-2px}
+.mgbox{position:relative;border-radius:12px;overflow:hidden;background:#121a2b}.mgbox canvas{display:block;width:100%;height:auto}.mgl{position:absolute;left:10px;top:8px;color:#fff;font-weight:700;font-size:.85rem;background:rgba(0,0,0,.35);padding:2px 8px;border-radius:999px}
 .tip{background:var(--soft);border-radius:var(--r-md);padding:14px;display:flex;flex-direction:column;gap:6px}
 .tip p{font-size:.9rem;color:var(--ink2)}
 .tip .ex{display:flex;gap:6px;flex-wrap:wrap} .tip .ex span{font-size:.78rem;font-weight:600;background:#fff;color:var(--accent-ink);border-radius:999px;padding:3px 10px}
@@ -170,6 +171,7 @@ progress{width:100%;height:10px;accent-color:var(--accent)}
     <div class="card"><h2>내 최고 기록</h2><div id="bestTbl"></div><p class="small muted">측정이 끝나면 자동으로 저장되고, 파울이 아닌 기록 중 가장 좋은 것만 여기에 보입니다.</p></div>
     <div class="card"><div class="row between"><h2>대학별 실기 점수</h2><span class="pill">2027학년도</span></div>
       <div class="seg" role="group" aria-label="모집 시기"><button data-adm="정시" aria-pressed="true">정시</button><button data-adm="수시" aria-pressed="false">수시</button></div>
+      <div class="seg" role="group" aria-label="지역"><button data-reg="" aria-pressed="true">전체</button><button data-reg="천안·아산" aria-pressed="false">천안·아산</button><button data-reg="서울·경기" aria-pressed="false">서울·경기</button></div>
       <input type="text" id="uniQ" placeholder="대학이나 학과 이름으로 찾기" aria-label="대학 검색" autocomplete="off">
       <div id="uniList" class="row"></div><div id="uniRes"></div>
       <p class="small muted">배점표는 각 대학 2027학년도 모집요강에서 옮긴 것입니다. 앱이 잰 기록은 대학의 측정 장비와 다를 수 있으니 참고용으로 보고, 지원 전에는 요강 원문을 꼭 확인하세요.</p></div>
@@ -183,12 +185,13 @@ progress{width:100%;height:10px;accent-color:var(--accent)}
       <label for="athlete">이름<input type="text" id="athlete" placeholder="이름"></label>
       <label for="myH">키 (거리 계산에 사용)<span class="row"><input type="number" id="myH" step="1"> cm</span></label>
       <label for="mySex">성별 (대학 배점표가 남녀로 나뉩니다)<select id="mySex"><option value="">선택 안 함</option><option value="m">남</option><option value="f">여</option></select></label></div></div>
+    <div class="card"><h2>내 측정 기록</h2><p class="small muted">종목을 누르면 지금까지 측정한 기록이 나옵니다. 기록을 누르면 그때의 영상과 피드백을 다시 봅니다.</p><div id="myEv" class="row"></div><div id="myList"></div></div>
     <div class="card"><h2>소속 연결</h2><p class="small" id="cloudState"></p>
       <div class="set"><label for="grpCode">소속 코드<input type="text" id="grpCode" autocomplete="off" placeholder="예: 강남체대반"></label><label for="grpPw">참여 비밀번호 (있는 소속만)<input type="password" id="grpPw" autocomplete="off"></label><label for="grpKey">관리자 비밀번호 (만든 사람만 입력)<input type="password" id="grpKey" autocomplete="off"></label></div>
       <div class="row"><button class="primary" id="grpJoin">연결</button><button id="grpNew">새 소속 만들기</button><button class="ghost" id="grpLeave">연결 끊기</button></div>
       <p class="small muted">소속에 연결하면 저장한 기록(이름, 종목, 수치, 판정)이 서버에 올라가 관리자가 볼 수 있습니다. "소속에 공유"를 누른 측정은 관절선 재생과 분석 결과가 소속 전원에게 보이고, 영상은 직접 고를 때만 올라갑니다. 새 소속을 만들 때 참여 비밀번호를 정하면 그 비밀번호를 아는 사람만 들어옵니다.</p></div>
     <div class="card"><h2>판정 기준</h2><p class="small muted">종목 화면에서 바꾼 기준은 이 기기에 기억됩니다. 처음 값으로 되돌릴 수 있어요.</p><div class="row"><button id="resetCfg">기준 처음으로</button><span class="small muted" id="resetMsg"></span></div></div>
-    <div class="card"><h2>저장 데이터</h2><p class="small muted">기록은 지금 이 기기의 브라우저에만 저장됩니다. 다른 기기와 공유하는 기능은 배포 후에 붙습니다.</p><div class="row"><button id="wipe">기록 모두 지우기</button><span class="small muted" id="wipeMsg"></span></div></div>
+    <div class="card"><h2>저장 데이터</h2><p class="small muted">기록과 측정 영상·피드백은 지금 이 기기의 브라우저에만 저장됩니다. 영상은 최근 12개까지 남기고, 그보다 오래된 측정은 관절선과 피드백만 남깁니다.</p><div class="row"><button id="wipe">기록 모두 지우기</button><span class="small muted" id="wipeMsg"></span></div></div>
   </section>
 
   <section id="feed" class="hidden">
@@ -469,11 +472,24 @@ function bindPick(pl, host, re) {
 
 /* ── 같은 영상은 항상 같은 결과가 나오게: 추적 결과를 영상별로 보관 ── */
 const fcache = { mem: new Map(), db: null,
-  open() { return this.db || (this.db = new Promise((res) => { try { const rq = indexedDB.open('silgi', 1); rq.onupgradeneeded = () => rq.result.createObjectStore('frames'); rq.onsuccess = () => res(rq.result); rq.onerror = () => res(null); } catch (e) { res(null); } })); },
+  open() { return this.db || (this.db = new Promise((res) => { try { const rq = indexedDB.open('silgi', 2); rq.onupgradeneeded = () => ['frames', 'details'].forEach(n => { if (!rq.result.objectStoreNames.contains(n)) rq.result.createObjectStore(n); }); rq.onsuccess = () => res(rq.result); rq.onerror = () => res(null); } catch (e) { res(null); } })); },
   async get(k) { if (this.mem.has(k)) return this.mem.get(k); const d = await this.open(); if (!d) return null; return new Promise((res) => { try { const rq = d.transaction('frames').objectStore('frames').get(k); rq.onsuccess = () => { if (rq.result) this.mem.set(k, rq.result); res(rq.result || null); }; rq.onerror = () => res(null); } catch (e) { res(null); } }); },
   async put(k, v) { this.mem.set(k, v); const d = await this.open(); if (!d) return; try { d.transaction('frames', 'readwrite').objectStore('frames').put(v, k); } catch (e) { } },
   async del(k) { this.mem.delete(k); const d = await this.open(); if (!d) return; try { d.transaction('frames', 'readwrite').objectStore('frames').delete(k); } catch (e) { } }
 };
+const dstore = { // 측정 하나하나의 관절선·분석 결과·영상을 이 기기에 보관
+  async tx(mode, fn) { const d = await fcache.open(); if (!d) return null; return new Promise((res) => { try { const rq = fn(d.transaction('details', mode).objectStore('details')); rq.onsuccess = () => res(rq.result); rq.onerror = () => res(null); } catch (e) { res(null); } }); },
+  get(id) { return this.tx('readonly', o => o.get(id)); }, put(id, v) { return this.tx('readwrite', o => o.put(v, id)); }, del(id) { return this.tx('readwrite', o => o.delete(id)); }, keys() { return this.tx('readonly', o => o.getAllKeys()).then(k => k || []); }, clear() { return this.tx('readwrite', o => o.clear()); }
+};
+const VID_KEEP = 12, VID_MAX = 120e6;
+async function saveDetail(rid, pl) {
+  try {
+    if (!pl || pl !== app.me || !pl.result || !pl.result.ok || !pl.frames || !pl.frames.length) return;
+    const pk = packShare(pl, true), vid = pl.file && pl.file.size <= VID_MAX ? pl.file : null;
+    await dstore.put(rid, { ev: app.ev.id, at: Date.now(), data: pk.data, video: vid });
+    if (vid) { const q = store.get('pe.vids', []); q.unshift(rid); for (const old of q.splice(VID_KEEP)) { const d = await dstore.get(old); if (d && d.video) { d.video = null; await dstore.put(old, d); } } store.set('pe.vids', q); }
+  } catch (e) { }
+}
 const frameKey = (pl, fps) => pl.fileKey ? `${pl.fileKey}|${fps}` : null;
 const ptsKey = (pl) => `${pl.fileKey}|${app.ev.id}|${cfgOf(app.ev.id).calibMode}`;
 
@@ -542,13 +558,48 @@ function recompute() { saveCfg(); if (app.viewing) { renderResults(); return; } 
 
 /* ── 기준 모델(잘하는 사람)과 관절선 겹치기 ── */
 const models = () => (app.cfg._models = app.cfg._models || {});
-const curModel = () => (app.model && app.model.ev === app.ev.id ? app.model : models()[app.ev.id]) || null;
+let builtinJump = null;
+function builtinModel(id) { // 저장된 기준 모델이 없을 때 쓰는 표준 동작 (연구 권장 각도로 만든 관절 움직임)
+  if (id !== 'jump') return null;
+  if (!builtinJump) { const sj = Analysis.synthJump(), r = Analysis.analyzeJump(sj.frames, { heightCm: sj.heightCm });
+    builtinJump = { ev: 'jump', builtin: true, name: '표준 동작', at: 0, anchor: r.ok ? r.anchor : sj.takeoff, H: sj.hPx, face: 1, value: r.ok ? r.record.value : sj.distCm, unit: 'cm', metrics: [], t: sj.frames.map(f => +f.t.toFixed(3)), p: sj.frames.map(f => f.p) }; }
+  return builtinJump;
+}
+const curModel = () => (app.model && app.model.ev === app.ev.id ? app.model : models()[app.ev.id]) || builtinModel(app.ev.id);
 const faceOf = (S, a) => { let v = 0; S.p.forEach((f, i) => { if (Math.abs(S.t[i] - a) < 0.7) v += (f[31][0] - f[29][0]) + (f[32][0] - f[30][0]); }); return Math.sign(v) || 1; };
 function packModel(pl, name) {
   const r = pl.result, S = Analysis.prep(pl.frames), a = r.anchor, idx = []; S.t.forEach((t, i) => { if (t >= a - 3 && t <= a + 6) idx.push(i); });
   const st = Math.max(1, Math.ceil(idx.length / 150)), use = idx.filter((_, k) => k % st === 0);
   return { ev: app.ev.id, name, at: Date.now(), anchor: a, H: Math.round(Analysis.bodyH(S)), face: faceOf(S, a), value: r.record.value, unit: r.record.unit, metrics: r.metrics.map(m => ({ key: m.key, value: m.value })),
     t: use.map(i => +S.t[i].toFixed(3)), p: use.map(i => S.p[i].map(q => [Math.round(q[0]), Math.round(q[1]), q[2] >= 0.3 ? 1 : 0])) };
+}
+const mg = { raf: 0, tau: -1.3, playing: false, last: 0 };
+function mgSetup(pl, M) { // 내 관절 움직임과 기준 동작을 위아래로 나란히 재생
+  cancelAnimationFrame(mg.raf); mg.playing = false; const A = $('#mgA'), B = $('#mgB'); if (!A || !B || !M) return;
+  const r = pl.result, S = Analysis.prep(pl.frames), T0 = -1.3, T1 = 1.7;
+  const side = (ts, ps, anchor, H, face) => { const idx = []; ts.forEach((t, i) => { if (ps[i] && t >= anchor + T0 - 0.05 && t <= anchor + T1 + 0.05) idx.push(i); }); if (!idx.length) return null;
+    let k0 = idx[0]; idx.forEach(i => { if (Math.abs(ts[i] - anchor) < Math.abs(ts[k0] - anchor)) k0 = i; });
+    const gy = Math.max(...idx.map(i => Math.max(ps[i][29][1], ps[i][30][1], ps[i][31][1], ps[i][32][1]))), x0 = face > 0 ? Math.max(ps[k0][31][0], ps[k0][32][0]) : Math.min(ps[k0][31][0], ps[k0][32][0]);
+    return { tau: idx.map(i => ts[i] - anchor), p: idx.map(i => ps[i].map(q => [(q[0] - x0) * face / H, (gy - q[1]) / H, q[2]])) }; };
+  const me = side(S.t, S.p, r.anchor, Analysis.bodyH(S), faceOf(S, r.anchor)), md = side(M.t, M.p, M.anchor, M.H, M.face); if (!me || !md) return;
+  const all = me.p.concat(md.p), xs = all.flatMap(f => BONES.flat().map(j => f[j][0])), ys = all.flatMap(f => BONES.flat().map(j => f[j][1])), xa = Math.min(...xs) - 0.15, xb = Math.max(...xs) + 0.15, yb = Math.max(...ys) + 0.2;
+  const sc = Math.min(A.width / (xb - xa), (A.height - 30) / yb), X = (x) => (x - xa) * sc, Y = (y) => A.height - 22 - y * sc;
+  const hot = (r.metrics || []).filter(m => (m.verdict === 'low' || m.verdict === 'high') && m.at != null && m.j).map(m => ({ tau: m.at - r.anchor, j: m.j, txt: `${m.label.replace(/ \(.*/, '')} ${m.value}${m.unit} · 권장 ${m.ref[0]}~${m.ref[1]}${m.unit}` }));
+  const near = (sd, tau) => { let k = 0; for (let i = 1; i < sd.tau.length; i++) if (Math.abs(sd.tau[i] - tau) < Math.abs(sd.tau[k] - tau)) k = i; return Math.abs(sd.tau[k] - tau) < 0.25 ? k : -1; };
+  const draw1 = (cv, sd, col, hs) => { const g = cv.getContext('2d'); g.fillStyle = '#121a2b'; g.fillRect(0, 0, cv.width, cv.height);
+    g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, Y(0)); g.lineTo(cv.width, Y(0)); g.stroke();
+    g.setLineDash([8, 6]); g.strokeStyle = '#FFD164'; g.beginPath(); g.moveTo(X(0), Y(0)); g.lineTo(X(0), Y(0) - 46); g.stroke(); g.setLineDash([]); g.fillStyle = '#FFD164'; g.font = '600 20px Pretendard, sans-serif'; g.fillText('출발선', X(0) + 6, Y(0) + 19);
+    const k = near(sd, mg.tau); g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = 3; g.beginPath(); let st = false; sd.p.forEach((f, i) => { if (sd.tau[i] > mg.tau) return; const hx = (f[23][0] + f[24][0]) / 2, hy = (f[23][1] + f[24][1]) / 2; if (!st) { g.moveTo(X(hx), Y(hy)); st = true; } else g.lineTo(X(hx), Y(hy)); }); g.stroke();
+    if (k < 0) return; const f = sd.p[k]; g.lineCap = 'round'; g.lineWidth = 7;
+    BONES.forEach(([a, b]) => { if (!f[a][2] || !f[b][2]) return; const h = hs.some(j => j.includes(a) && j.includes(b)); g.strokeStyle = h ? '#FF8A3D' : col; g.beginPath(); g.moveTo(X(f[a][0]), Y(f[a][1])); g.lineTo(X(f[b][0]), Y(f[b][1])); g.stroke(); });
+    const sh = [(f[11][0] + f[12][0]) / 2, (f[11][1] + f[12][1]) / 2], hd = f[0][2] ? f[0] : [sh[0], sh[1] + 0.12]; g.fillStyle = col; g.beginPath(); g.arc(X(hd[0]), Y(hd[1]), 0.055 * sc, 0, 7); g.fill();
+    const fx = Math.min(f[29][0], f[30][0]); if (mg.tau > 0.3 && Math.max(f[29][1], f[30][1], f[31][1], f[32][1]) < 0.05 && fx > 0.3) { g.fillStyle = '#fff'; g.font = '700 22px Pretendard, sans-serif'; g.fillText('착지', X(fx) - 20, Y(0) + 19); } };
+  const paint = () => { const hs = hot.filter(h => Math.abs(h.tau - mg.tau) < 0.13); draw1(A, me, '#ffffff', hs.map(h => h.j)); draw1(B, md, '#40C9FF', []); const cap = $('#mgCap'); if (cap) cap.textContent = hs.length ? '여기를 보세요: ' + hs.map(h => h.txt).join(' / ') : ''; };
+  const tick = (now) => { if (!mg.playing || !A.isConnected) { mg.playing = false; return; } mg.tau += (now - mg.last) / 1000 * (+$('#mgRate').value || 0.5); mg.last = now; if (mg.tau > T1) mg.tau = T0; paint(); mg.raf = requestAnimationFrame(tick); };
+  const btn = $('#mgPlay'), set = (on) => { mg.playing = on; btn.textContent = on ? '멈춤' : '재생'; if (on) { mg.last = performance.now(); mg.raf = requestAnimationFrame(tick); } };
+  btn.onclick = () => set(!mg.playing);
+  document.querySelectorAll('[data-mgt]').forEach(b => b.onclick = () => { set(false); mg.tau = Math.max(T0, Math.min(T1, +b.dataset.mgt - r.anchor)); paint(); });
+  mg.tau = 0; paint();
 }
 function drawGhost(pl, g, fr, t) {
   const M = pl.ghost, r = pl.result; if (!M || !r || !r.ok || !fr || !fr.p) return;
@@ -650,6 +701,9 @@ const PHASES = { jump: [['① 반동 자세 (무릎을 굽혀 뛰려는 순간)'
     ['④ 착지 자세', ['legOut', 'tdKnee', 'tdHip', 'reach', 'landKnee'], 'tdKnee', '다리를 너무 일찍 뻗지 않았는지, 닿는 순간 무릎을 펴고 몸을 접었는지 봅니다.']],
   sargent: [['도약 자세', ['knee', 'armTO', 'ext'], 'armTO'], ['공중 자세', ['flightH', 'flight'], null], ['착지', ['drift', 'landKnee'], 'landKnee']] };
 const EXD = { // 운동 이름(앞부분) → 방법 | 주의
+  '플라잉 10m 달리기': '10m를 달려 속도를 올린 뒤 이어지는 10m를 전력으로 달립니다. 뒤 10m만 최고 속도로 달리는 연습이고, 한 번 달릴 때마다 2분 쉽니다.|힘이 빠진 채 달리면 느린 동작이 몸에 익습니다. 충분히 쉬고 달립니다.',
+  '40m 왕복 반복 달리기': '실제 시험과 같은 10m 왕복 2회(40m)를 전력으로 달리고 1분 쉰 뒤 다시 달립니다. 뒤 회차에서도 첫 회차 기록의 5% 안쪽을 지키는 것이 목표입니다.|기록이 크게 떨어지면 그날은 거기서 끝냅니다.',
+  '150m 템포 달리기': '전력의 70~80% 속도로 150m를 달리고, 걸어서 출발점으로 돌아오며 쉽니다.|전력으로 달리는 운동이 아닙니다. 끝까지 같은 속도를 지킵니다.',
   '카운터무브먼트 점프': '바로 서서 팔을 뒤로 보내며 빠르게 앉았다가 멈추지 않고 그대로 최대한 높이 뜁니다. 한 번 뛸 때마다 자세를 다시 잡고, 세트 사이 1~2분 쉽니다.|앉는 속도가 느리면 효과가 없습니다. 무릎이 안으로 모이지 않게 합니다.',
   '박스 스쿼트': '무릎 높이 박스 앞에 서서 엉덩이를 뒤로 빼며 박스에 살짝 닿을 때까지 앉았다가 발바닥 전체로 밀어 일어납니다. 바벨이나 덤벨을 들면 좋습니다.|박스에 털썩 주저앉지 않습니다. 허리가 말리지 않게 가슴을 폅니다.',
   '스쿼트 점프': '무릎 90° 자세에서 2초 멈췄다가 반동 없이 그대로 뛰어오릅니다. 착지는 조용히 무릎을 굽혀 받습니다.|멈춘 자세에서 더 내려갔다 뛰면 안 됩니다.',
@@ -724,7 +778,7 @@ function renderResults() {
   const status = !isS ? (bad ? ['bad', '파울'] : r.fouls.length ? ['warn', '기록 인정 · 확인 필요'] : ['good', '기록 인정']) : (r.attempts === r.record.value ? ['good', '전부 인정'] : ['warn', `${r.attempts - r.record.value}회 무효`]);
   let h = `<div class="card hero"><div class="row between"><h2>기록</h2><span class="pill ${status[0]}">${status[1]}</span></div>
     <div class="record"><div class="big">${fv(r.record.value)}<small>${r.record.unit}</small></div>
-    <div class="small muted" style="display:flex;flex-direction:column;gap:2px;padding-bottom:6px">${r.notes.map(n => `<span>${esc(n)}</span>`).join('')}${M ? `<span>기준 모델(${esc(M.name)}): ${fv(M.value)}${M.unit}</span>` : ''}</div></div>
+    <div class="small muted" style="display:flex;flex-direction:column;gap:2px;padding-bottom:6px">${r.notes.map(n => `<span>${esc(n)}</span>`).join('')}${M && !M.builtin ? `<span>기준 모델(${esc(M.name)}): ${fv(M.value)}${M.unit}</span>` : ''}</div></div>
     ${r.fouls.length ? `<div class="fouls">${r.fouls.map(f => `<div class="foul ${f.sev}"><b>${esc(f.label)}</b>${esc(f.detail)}</div>`).join('')}</div>` : ''}
     <div class="row ${app.viewing ? 'hidden' : ''}"><button class="hidden" id="btnSave">저장</button><span class="small muted" id="saveMsg">${app.me._savedId ? '기록 탭에 자동으로 저장했어요.' : ''}</span></div>
     <div class="row ${app.viewing || !cloud.grp ? 'hidden' : ''}"><button id="btnShare" style="color:var(--ink)">소속에 공유</button><label class="row small" for="shVid" style="gap:6px"><input type="checkbox" id="shVid"> 영상도 함께 올리기</label><span class="small" id="shareMsg"></span></div>
@@ -747,6 +801,15 @@ function renderResults() {
       <div class="reps">${r.reps.filter(x => x.reason !== '시작 전').map(x => `<button class="${x.valid ? '' : 'x'}" data-t="${x.t}" title="${x.valid ? '인정' : esc(x.reason)} · 상체 ${x.peak}°">${x.valid ? x.n : '×'}</button>`).join('')}</div>
       <h3>10초 구간별 인정 개수</h3><div class="bars">${r.buckets.map((b, i) => `<div><span>${b.valid}</span><i style="height:${b.valid / mx * 70}%"></i><span>${i * 10}~${i * 10 + 10}초</span></div>`).join('')}</div></div>`;
   }
+  if (r.sections && r.sections.length) {
+    const vm = Math.max(...r.sections.map(x => x.ph ? Math.max(...x.ph) : x.mps)), bar = (v, lab) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px"><span class="small"><b>${v}</b></span><i style="display:block;width:100%;height:${Math.round(v / vm * 56)}px;border-radius:6px 6px 0 0;background:${v / vm < 0.6 ? 'var(--warn)' : 'var(--accent)'}"></i><span class="small muted">${lab}</span></div>`;
+    const sl = r.lossSlow, last = r.sections.length;
+    h += `<div class="card"><h2>구간별 속도</h2><p class="small muted">출발선에서 반대편까지 한 번을 한 구간으로 봅니다. 구간마다 앞·가운데·뒤로 3등분한 속도(m/s)입니다. 구간을 누르면 그 장면으로 이동합니다.</p>
+      ${r.sections.map(x => `<div class="tip" data-t="${x.t0}" style="cursor:pointer"><div class="row between"><h3>${x.n}구간 · ${x.out ? '가는 길' : '돌아오는 길'}</h3><span class="pill ${sl && sl.n === x.n ? 'warn' : 'info'}">${x.sec}초 · 평균 ${x.mps}m/s</span></div>${x.ph ? `<div style="display:flex;gap:8px;align-items:flex-end;height:96px">${bar(x.ph[0], x.n === 1 ? '출발 가속' : '턴 후 가속')}${bar(x.ph[1], '가운데')}${bar(x.ph[2], x.n === last ? '도착' : '턴 진입')}</div>` : ''}</div>`).join('')}
+      ${sl ? `<p><b>${sl.n}구간이 가장 느렸습니다.</b> 평균 ${sl.mps}m/s로, 가장 빨랐던 ${sl.best}구간(${sl.bestMps}m/s)보다 ${Math.round((1 - sl.mps / sl.bestMps) * 100)}% 느립니다. ${sl.late ? '뒤로 갈수록 속도가 떨어진 것이라 짧은 거리를 반복해 달리는 힘이 필요합니다.' : '초반에 속도를 올리는 힘이 필요합니다.'}</p><p><b>보강운동</b> (누르면 방법이 나옵니다)</p><div>${(sl.late ? ['40m 왕복 반복 달리기(휴식 1분) 5회', '150m 템포 달리기 4회'] : ['푸시업 스타트 5회', '슬레드·밴드 저항 달리기 5×10m']).map(exHtml).join('')}</div>` : ''}
+      ${r.loss && r.loss.length ? `<h3>시간을 많이 잃은 곳</h3><p class="small muted">가장 빨랐던 순간 속도(${r.vmax}m/s)로 계속 달렸을 때와 비교해 잃은 시간입니다. 가속·감속 구간은 누구나 시간을 잃지만, 숫자가 큰 곳부터 줄이는 것이 기록에 가장 빨리 반영됩니다.</p>${r.loss.slice(0, 3).map((x, i) => `<div class="tip"><div class="row between"><h3>${i + 1}. ${esc(x.label)}</h3><span class="pill warn">약 ${x.sec}초</span></div><p><b>이렇게 고치세요.</b> ${esc(x.fix)}</p><p><b>보강운동</b> (누르면 방법이 나옵니다)</p><div>${x.ex.map(exHtml).join('')}</div></div>`).join('')}` : ''}
+      <p class="small muted">속도는 엉덩이 위치의 움직임으로 계산했습니다. 키로 축척을 잡은 경우 절대값은 어림이지만 구간끼리의 비교는 믿을 만합니다.</p></div>`;
+  }
   const PHS = PHASES[r.event]; let phHtml = '';
   if (PHS) phHtml = PHS.map(([name, keys, shot, desc]) => { const ms = keys.map(k => r.metrics.find(m => m.key === k)).filter(Boolean), bad = ms.filter(m => m.verdict === 'low' || m.verdict === 'high').length;
     return `<div class="tip"><div class="row between"><h3>${name}</h3><span class="pill ${bad ? 'warn' : 'good'}">${bad ? '고칠 점 ' + bad + '가지' : '좋아요'}</span></div>${desc ? `<p class="small muted">${desc}</p>` : ''}${shot && ms.some(m => m.key === shot && m.at != null) ? `<div class="shot" data-shot="${shot}"></div>` : ''}
@@ -760,8 +823,14 @@ function renderResults() {
   const cmp = (m) => { if (!m || !m.ref || m.verdict === 'good') return ''; const d = Math.round((m.verdict === 'low' ? m.ref[0] - m.value : m.value - m.ref[1]) * 10) / 10; return `<p class="cmp"><b>나 ${m.value}${m.unit}</b> · 잘하는 사람 ${m.ref[0]}~${m.ref[1]}${m.unit}${rmap[m.key] != null ? ` · 기준 모델 ${rmap[m.key]}${m.unit}` : ''} → <b>${d}${m.unit} ${m.verdict === 'low' ? '모자랍니다' : '넘칩니다'}</b></p>`; };
   h += `<div class="card"><h2>잘하는 사람과 비교해 고칠 점</h2>${goods.length ? `<p class="small"><b>잘하고 있는 점</b> ${goods.map(esc).join(', ')}</p>` : ''}${tips.length ? `<p class="small muted">차이가 큰 것부터 적었습니다. 위에서부터 하나씩 고치세요.</p>` + tips.map((t, i) => `<div class="tip"><h3>${i + 1}. ${esc(t.p)}</h3>${cmp(mOf(t.key))}<p><b>이렇게 고치세요.</b> ${esc(t.fix)}</p>${t.ex.length ? `<p><b>보강운동</b> (누르면 방법이 나옵니다)</p><div>${t.ex.map(exHtml).join('')}</div>` : ''}</div>`).join('') : '<p>지표가 모두 잘하는 사람 범위 안입니다. 지금 자세를 유지하면서 근력과 순발력을 키우면 기록이 따라옵니다.</p>'}
     <p class="small muted">"잘하는 사람" 범위는 운동역학 연구와 지도 현장에서 쓰는 일반 기준입니다. 실제 상위권 수험생의 측정을 기준 모델로 저장하면 그 사람 수치와 관절선으로 직접 비교합니다.${(Analysis.BASIS[app.ev.dist ? 'run' : app.ev.id] || []).length ? '<br>참고한 연구: ' + Analysis.BASIS[app.ev.dist ? 'run' : app.ev.id].map(b => `<a href="${b[1]}" target="_blank" rel="noopener">${esc(b[0])}</a>`).join(' · ') : ''}</p></div>`;
+  if (M && r.anchor != null && r.event !== 'situp' && !app.ev.dist) h += `<div class="card"><div class="row between"><h2>모션그래픽으로 비교</h2><span class="pill">${M.builtin ? '표준 동작' : esc(M.name)}</span></div>
+    <p class="small muted">위가 내 동작, 아래가 ${M.builtin ? '잘 뛰는 표준 동작' : '기준 모델'}입니다. 도약 순간과 출발 위치를 맞춰 같은 크기로 그렸습니다. 고칠 점이 나오는 순간에는 그 관절이 주황색으로 바뀝니다.</p>
+    <div class="mgbox"><span class="mgl">나</span><canvas id="mgA" width="900" height="420"></canvas></div><div class="mgbox"><span class="mgl">${M.builtin ? '표준 동작' : '기준 모델'}</span><canvas id="mgB" width="900" height="420"></canvas></div>
+    <p class="small" id="mgCap" style="min-height:1.4em;color:var(--warn);font-weight:700"></p>
+    <div class="row"><button id="mgPlay" class="primary">재생</button><select id="mgRate" aria-label="재생 속도"><option value="0.25">0.25배속</option><option value="0.5" selected>0.5배속</option><option value="1">1배속</option></select>${(r.events || []).map(e => `<button data-mgt="${e.t}">${esc(e.label)}</button>`).join('')}</div>
+    ${M.builtin ? '<p class="small muted">표준 동작은 운동역학 연구의 권장 각도(반동 무릎 약 90°, 도약 각도 약 30°, 공중에서 무릎 당기기, 착지 때 다리 앞으로 뻗기)로 만든 움직임입니다. 유튜브 영상 속 선수의 동작을 그대로 옮긴 것은 아닙니다.</p>' : ''}</div>`;
   h += `<div class="card"><h2>관절선 겹쳐 보기</h2>
-    <p class="small">${M ? `기준 모델: <b>${esc(M.name)}</b> ${fv(M.value)}${M.unit}` : '아직 기준 모델이 없습니다. 잘하는 사람을 이 화면에서 똑같이 측정한 뒤 아래 "기준 모델로 저장"을 누르면 됩니다.'}</p>
+    <p class="small">${M && M.builtin ? '지금은 <b>표준 동작</b>과 비교합니다. 연구에 나온 권장 각도로 만든 관절 움직임이고 실제 사람의 영상은 아닙니다. 잘하는 사람을 이 화면에서 똑같이 측정한 뒤 "기준 모델로 저장"을 누르면 그 사람 동작으로 바뀝니다.' : M ? `기준 모델: <b>${esc(M.name)}</b> ${fv(M.value)}${M.unit}` : '아직 기준 모델이 없습니다. 잘하는 사람을 이 화면에서 똑같이 측정한 뒤 아래 "기준 모델로 저장"을 누르면 됩니다.'}</p>
     <label class="row small" for="ghOn" style="${M ? '' : 'display:none'}"><input type="checkbox" id="ghOn" ${app.ghostOn && M ? 'checked' : ''}> 내 영상에 기준 모델 관절선 겹치기 (하늘색이 기준 모델, 흰색이 나)</label>
     <div class="seg ${M && app.ghostOn ? '' : 'hidden'}" role="group" aria-label="겹치는 방식"><button data-gm="pose" aria-pressed="${(app.ghostMode || 'pose') === 'pose'}">자세 비교 (엉덩이를 맞춤)</button><button data-gm="move" aria-pressed="${app.ghostMode === 'move'}">움직임 비교 (출발 자리를 맞춤)</button></div>
     <p class="small muted ${M && app.ghostOn ? '' : 'hidden'}">키 차이는 자동으로 맞추고, 핵심 순간(도약·출발 등)을 기준으로 시간을 맞춥니다. 0.25배속이나 1프레임씩 넘기며 보세요.</p>
@@ -770,8 +839,9 @@ function renderResults() {
     <div class="row"><button id="btnRef">비교 영상 선택</button><input type="file" id="fRef" accept="video/*" class="hidden">${!isS ? `<label class="small muted" for="refH">비교 대상 키 <input type="number" id="refH" value="${cfgOf(app.ev.id).refHeightCm}"> cm</label>` : ''}<span class="small muted" id="refMsg"></span></div>
     <progress id="refProg" class="hidden" max="1" value="0"></progress><div id="refPlayer"></div>
     <div class="row ${rr ? '' : 'hidden'}"><button id="btnSync">핵심 순간을 맞춰 함께 재생 (0.5배속)</button></div></div></div>`;
-  host.innerHTML = h;
+  host.innerHTML = h; mgSetup(app.me, M);
   if (app.ref) { $('#refPlayer').replaceWith(app.ref.host); app.ref.host.id = 'refPlayer'; }
+  host.querySelectorAll('.tip[data-t]').forEach(b => b.onclick = (e) => { if (e.target.closest('details,summary,a,button')) return; app.me.seek(+b.dataset.t); $('#playerCard').scrollIntoView({ block: 'nearest' }); });
   host.querySelectorAll('.reps button').forEach(b => b.onclick = () => { app.me.seek(+b.dataset.t); $('#playerCard').scrollIntoView({ block: 'nearest' }); });
   $('#btnSave').onclick = () => saveRecord(r); $('#btnShare').onclick = shareNow; fillShots(app.me, host);
   const gh = $('#ghOn'); if (gh) gh.onchange = () => { app.ghostOn = gh.checked; renderResults(); if (gh.checked) $('#playerCard').scrollIntoView({ block: 'nearest' }); };
@@ -892,7 +962,7 @@ async function liveStop() {
   if (blob) {
     try {
       const ph = document.createElement('div'); $('#player').replaceWith(ph); ph.id = 'player'; const pl = new Player(ph);
-      await pl.load(blob, dur); pl.frames = frames; pl.pts = pts.slice(); pl.fps = Math.max(10, Math.round(frames.length / dur)); pl.liveStart = true;
+      await pl.load(blob, dur); pl.frames = frames; pl.pts = pts.slice(); pl.fps = Math.max(10, Math.round(frames.length / dur)); pl.liveStart = true; pl.file = blob;
       app.me = pl; compute(pl, false); $('#playerCard').classList.remove('hidden'); updTrim(); $('#btnRun').classList.remove('hidden'); renderSetup();
       liveClose(); $('#liveCard').classList.add('hidden');
     } catch (e) { app.me = live; }
@@ -1012,7 +1082,7 @@ const evName = (id) => (EVENTS.find(e => e.id === id) || {}).name || id;
 function saveRecord(r) {
   const list = store.get('pe.history', []);
   const rid = Date.now(), lastAll = store.get('pe.last', {}); (lastAll[app.ev.id] = lastAll[app.ev.id] || []).unshift({ id: rid, at: new Date().toISOString(), value: r.record.value, unit: r.record.unit, metrics: (r.metrics || []).map(m => ({ key: m.key, label: m.label, value: m.value, unit: m.unit })) });
-  lastAll[app.ev.id] = lastAll[app.ev.id].slice(0, 6); store.set('pe.last', lastAll); if (app.me) app.me._savedId = rid;
+  lastAll[app.ev.id] = lastAll[app.ev.id].slice(0, 6); store.set('pe.last', lastAll); if (app.me) { app.me._savedId = rid; if (app.me.result === r) saveDetail(rid, app.me); }
   list.unshift({ id: rid, ev: app.ev.id, name: app.name, at: new Date().toISOString(), value: r.record.value, unit: r.record.unit, ok: !r.fouls.some(f => f.sev === 'bad'), note: r.noteText || r.fouls.map(f => f.label).join(', '), info: !!r.noteText });
   store.set('pe.history', list.slice(0, 200)); const msgEl = r.msgEl || $('#saveMsg') || document.createElement('i'); msgEl.textContent = '기록 탭에 자동으로 저장했어요.';
   if (cloud.grp) cloudSync().then((ok) => { if (ok && msgEl.isConnected) msgEl.textContent = '저장하고 소속 서버에도 올렸어요.'; });
@@ -1036,6 +1106,27 @@ function spark(vals, unit) {
   const d = pt.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' '), last = pt[n - 1];
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="기록 변화, 최근 ${vals[n - 1]}${unit}"><path d="${d} L${last[0]} ${H} L${pt[0][0]} ${H} Z" fill="#DDE4FF"/><path d="${d}" fill="none" stroke="#3D5BFF" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="${last[0]}" cy="${last[1]}" r="4" fill="#3D5BFF"/></svg>`;
 }
+const my = { ev: '' };
+async function renderMy() {
+  const list = store.get('pe.history', []), keys = new Set(await dstore.keys()), vids = new Set(store.get('pe.vids', [])), host = $('#myEv'); if (!host) return;
+  const evs = EVENTS.filter(e => list.some(x => x.ev === e.id)); if (!evs.some(e => e.id === my.ev)) my.ev = evs.length ? evs[0].id : '';
+  host.innerHTML = evs.length ? evs.map(e => `<button data-me="${e.id}" aria-pressed="${e.id === my.ev}" style="${e.id === my.ev ? 'background:var(--accent);color:#fff;border-color:var(--accent)' : ''}">${e.ico} ${e.name} ${list.filter(x => x.ev === e.id).length}</button>`).join('') : '<p class="empty">아직 측정한 기록이 없어요.</p>';
+  host.querySelectorAll('[data-me]').forEach(b => b.onclick = () => { my.ev = b.dataset.me; renderMy(); });
+  const rows = list.filter(x => x.ev === my.ev), b = bestsOf(rows)[my.ev];
+  $('#myList').innerHTML = rows.map(x => { const has = keys.has(x.id); return `<div class="rec" ${has ? `data-open="${x.id}" role="button" tabindex="0" style="cursor:pointer"` : ''}><div class="v">${x.value}<small> ${x.unit}</small></div><div class="m"><b>${new Date(x.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${b && b.id === x.id ? ' · 최고 기록' : ''}</b>${has ? (vids.has(x.id) ? '영상·피드백 보기' : '관절선·피드백 보기') : '수치만 저장된 기록'}${x.note ? ' · ' + esc(x.note) : ''}</div><span class="pill ${x.ok ? (x.note && !x.info ? 'warn' : 'good') : 'bad'}">${x.ok ? (x.note && !x.info ? '확인 필요' : '인정') : '파울'}</span></div>`; }).join('');
+  $('#myList').querySelectorAll('[data-open]').forEach(r => { const go = () => openLocal(+r.dataset.open); r.onclick = go; r.onkeydown = (e) => { if (e.key === 'Enter') go(); }; });
+}
+async function openLocal(id) {
+  const it = store.get('pe.history', []).find(x => x.id === id), d0 = await dstore.get(id); if (!it || !d0) return;
+  const d = d0.data, ev = EVENTS.find(e => e.id === it.ev);
+  showEvent(ev); app.viewing = `${new Date(it.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}에 측정한 내 기록입니다.`;
+  ['#videoCard', '#steps'].forEach(q => $(q).classList.add('hidden')); $('#barTitle').textContent = `내 기록 · ${ev.name}`;
+  const ph = document.createElement('div'); $('#player').replaceWith(ph); ph.id = 'player'; let pl = null;
+  if (d0.video) { try { pl = new Player(ph); await pl.load(d0.video, d.dur); } catch (e) { pl = null; } }
+  if (!pl) { ph.innerHTML = ''; pl = new Player(ph, d0.video ? '영상을 불러오지 못해 관절선만 보여 줍니다' : '영상은 보관 기간이 지나 관절선만 남아 있습니다', { W: d.W, H: d.H, dur: d.dur }); }
+  pl.frames = d.t.map((t, i) => ({ t, p: d.p[i] })); pl.pts = d.pts || []; pl.fps = Math.max(5, Math.round(d.t.length / d.dur)); pl.result = d.result; app.me = pl;
+  $('#playerCard').classList.remove('hidden'); $('#trimA').parentElement.classList.add('hidden'); $('#btnRun').classList.add('hidden'); pl.setMarkers(d.result.events || []); renderResults(); pl.seek(d.result.anchor || 0);
+}
 function renderRecords() {
   const list = store.get('pe.history', []), b = bestsOf(list);
   $('#trend').innerHTML = Object.keys(b).map(k => { const rows = list.filter(x => x.ev === k && x.ok).reverse(), vals = rows.map(x => x.value), last = vals[vals.length - 1], prev = vals[vals.length - 2];
@@ -1043,7 +1134,7 @@ function renderRecords() {
   $('#bestTbl').innerHTML = EVENTS.map(e => { const x = b[e.id]; return `<div class="rec"><div class="m"><b>${e.ico} ${e.name}</b>${x ? day(x) + (x.info && x.note ? ' · ' + esc(x.note) : '') : '아직 기록 없음'}</div><div class="v" style="text-align:right">${x ? x.value + `<small> ${x.unit}</small>` : '<small>—</small>'}</div></div>`; }).join('');
   const host = $('#history');
   host.innerHTML = list.length ? list.slice(0, 50).map(x => recRow(x, true)).join('') : '<p class="empty">아직 저장한 기록이 없어요.</p>';
-  host.querySelectorAll('[data-del]').forEach(x => x.onclick = async () => { const it = store.get('pe.history', []).find(y => y.id === +x.dataset.del); if (it && it.cid && cloud.grp) { try { await api('del', { grp: cloud.grp, name: it.name, id: it.cid, key: cloud.key }); } catch (e) { return; } } store.set('pe.history', store.get('pe.history', []).filter(y => y.id !== +x.dataset.del)); renderRecords(); });
+  host.querySelectorAll('[data-del]').forEach(x => x.onclick = async () => { const it = store.get('pe.history', []).find(y => y.id === +x.dataset.del); if (it && it.cid && cloud.grp) { try { await api('del', { grp: cloud.grp, name: it.name, id: it.cid, key: cloud.key }); } catch (e) { return; } } store.set('pe.history', store.get('pe.history', []).filter(y => y.id !== +x.dataset.del)); dstore.del(+x.dataset.del); renderRecords(); });
 }
 
 /* ── 소속 연결(서버 저장) ── */
@@ -1093,9 +1184,9 @@ $('#grpLeave').onclick = () => { cloud.grp = ''; cloud.key = ''; cloud.pw = ''; 
 setInterval(() => { if (cloud.grp && !document.hidden && !live.on && !sh.on && !shCam.on) cloudSync().then((ok) => { if (ok && !$('#records').classList.contains('hidden')) renderRecords(); }); }, 20000);
 
 /* ── 소속 공유: 관절선 재생 + 결과, 고르면 영상까지 ── */
-function packShare(pl) {
+function packShare(pl, full) {
   const r = pl.result, id = app.ev.id, a = r.anchor || 0, end = pl.dur || (pl.frames.length ? pl.frames[pl.frames.length - 1].t : a + 6);
-  const c0 = Math.max(0, a - (id === 'situp' || app.ev.dist ? 2 : 3)), c1 = Math.min(end, id === 'situp' ? a + cfgOf('situp').limitSec + 3 : app.ev.dist ? a + 45 : a + 6);
+  const c0 = full ? 0 : Math.max(0, a - (id === 'situp' || app.ev.dist ? 2 : 3)), c1 = full ? end : Math.min(end, id === 'situp' ? a + cfgOf('situp').limitSec + 3 : app.ev.dist ? a + 45 : a + 6);
   const fr = pl.frames.filter(f => f.p && f.t >= c0 && f.t <= c1), st = Math.max(1, Math.ceil(fr.length / 400)), use = fr.filter((_, k) => k % st === 0);
   const res = JSON.parse(JSON.stringify(r)); delete res.series; res.anchor = a - c0; (res.events || []).forEach(e => { e.t -= c0; }); (res.reps || []).forEach(e => { e.t -= c0; e.tStart -= c0; }); (res.metrics || []).forEach(e => { if (e.at != null) e.at = +(e.at - c0).toFixed(3); });
   return { c0, c1, data: { W: pl.W, H: pl.H, dur: +(c1 - c0).toFixed(2), pts: pl.pts, result: res, t: use.map(f => +(f.t - c0).toFixed(3)), p: use.map(f => f.p.map(q => [Math.round(q[0]), Math.round(q[1]), q[2] >= 0.3 ? 1 : 0])) } };
@@ -1183,38 +1274,101 @@ $('#admPush').onclick = async () => { const m = $('#admPushMsg'); m.textContent 
 const stepRows = (top, n, ds, start, dv) => Array.from({ length: n }, (_, k) => [top - ds * k, Math.round((start + dv * k) * 100) / 100]);
 const pair = (scores, m, df) => ({ m: scores.map((sc, i) => [sc, m[i]]), f: scores.map((sc, i) => [sc, Math.round((m[i] + df) * 100) / 100]) });
 const CDN = 'https://cdn013.negagea.net/dgsmidc/omr/seoul/web/univ_info2026/';
+const both = (u) => ({ 정시: CDN + u + '/' + u + '_2027학년도_정시모집요강.pdf', 수시: CDN + u + '/' + u + '_2027학년도_수시모집요강.pdf' }), jsOnly = (u) => ({ 정시: both(u).정시 });
+const BS_EV = [{ id: 'run10', max: 25, floor: 11, m: stepRows(25, 14, 1, 8.0, 0.1), f: stepRows(25, 14, 1, 9.2, 0.1) }, { id: 'jump', max: 25, floor: 11, m: stepRows(25, 14, 1, 284, -5), f: stepRows(25, 14, 1, 231, -5) }, { id: 'situp', max: 25, floor: 11, m: stepRows(25, 14, 1, 72, -1), f: stepRows(25, 14, 1, 64, -1) }];
+const SW_J = [200, 197, 194, 191, 188, 185, 181, 177, 173, 169, 165, 161, 157, 153, 149, 145, 140, 135, 130, 125, 120, 115, 110, 105, 100, 95, 90, 85, 80, 75], SW_C = (top) => SW_J.map((sc, k) => [sc, top - (k < 16 ? 2 * k : 30 + 3 * (k - 15))]);
+const YI_S = [75, 68, 61, 54, 47, 40, 33, 26, 19, 12];
 const UNI = [
-  { u: '강남대학교', d: '체육학과', total: 800, src: { 정시: CDN + '강남대학교/강남대학교_2027학년도_정시모집요강.pdf', 수시: CDN + '강남대학교/강남대학교_2027학년도_수시모집요강.pdf' }, other: ['메디신볼 던지기 200점', '사이드스텝 200점'],
+  { r: '천안·아산', u: '백석대학교', d: '스포츠과학부', total: null, src: both('백석대학교'), other: [], note: '종목마다 25점 만점으로 매긴 뒤 왕복달리기·제자리멀리뛰기 ×9.8, 윗몸일으키기 ×8.4로 환산합니다(정시 실기 700점). 수시는 실기 600점으로 환산합니다.', ev: BS_EV },
+  { r: '천안·아산', u: '백석대학교', d: '특수체육교육과', total: null, src: both('백석대학교'), other: [], note: '종목마다 25점 만점으로 매긴 뒤 왕복달리기·제자리멀리뛰기 ×5.6, 윗몸일으키기 ×4.8로 환산합니다(실기 400점).', ev: BS_EV },
+  { r: '천안·아산', u: '남서울대학교', d: '스포츠비즈니스·스포츠건강관리학과', total: null, src: both('남서울대학교'), other: ['메디신볼 던지기 100점'], note: '종목마다 100점 만점이고 실기 성적은 700점으로 환산합니다. 스포츠건강관리학과는 3종목 중 점수가 높은 2종목만 반영합니다.',
+    ev: [{ id: 'run20', max: 100, floor: 0, m: stepRows(100, 20, 5, 13.8, 0.2), f: stepRows(100, 20, 5, 15.8, 0.2) }, { id: 'jump', max: 100, floor: 0, m: stepRows(100, 20, 5, 300, -3), f: stepRows(100, 20, 5, 250, -3) }] },
+  { r: '천안·아산', u: '호서대학교', d: '사회체육학과', total: null, src: both('호서대학교'), other: ['메디신볼 던지기 100점'], note: '종목마다 100점 만점이고 3종목 평균을 실기 800점으로 환산합니다. 파울로 기회를 다 쓰면 0점입니다.',
+    ev: [{ id: 'jump', max: 100, floor: 30, m: stepRows(100, 14, 5, 285, -4), f: stepRows(100, 14, 5, 235, -4) }, { id: 'run10', max: 100, floor: 30, m: stepRows(100, 14, 5, 8.0, 0.1), f: stepRows(100, 14, 5, 9.2, 0.1) }] },
+  { r: '천안·아산', u: '호서대학교', d: '스포츠과학과', total: null, src: both('호서대학교'), other: ['메디신볼 던지기 100점'], note: '종목마다 100점 만점이고 3종목 평균을 실기 800점으로 환산합니다. 수직점프는 앱의 서전트 기록으로 계산합니다.',
+    ev: [{ id: 'run20', max: 100, floor: 30, m: stepRows(100, 14, 5, 13.7, 0.2), f: stepRows(100, 14, 5, 15.7, 0.2) }, { id: 'sargent', max: 100, floor: 30, m: stepRows(100, 14, 5, 70, -2), f: stepRows(100, 14, 5, 50, -2) }] },
+  { r: '천안·아산', u: '순천향대학교', d: '스포츠과학과', total: 600, src: jsOnly('순천향대학교'), other: ['농구공 던지기 200점', '농구 골밑슛 200점'], note: '3종목 합계 600점을 실기 700점(최저 560점)으로 환산합니다.',
+    ev: [{ id: 'jump', max: 200, floor: 80, m: stepRows(200, 12, 10, 288, -3), f: stepRows(200, 12, 10, 240, -3) }] },
+  { r: '천안·아산', u: '순천향대학교', d: '스포츠응용산업학과', total: 600, src: jsOnly('순천향대학교'), other: ['농구공 던지기 200점'], note: '3종목 합계 600점을 실기 700점(최저 560점)으로 환산합니다.',
+    ev: [{ id: 'jump', max: 200, floor: 80, m: stepRows(200, 12, 10, 300, -4), f: stepRows(200, 12, 10, 240, -4) }, { id: 'run20', max: 200, floor: 80, m: stepRows(200, 12, 10, 13.49, 0.3), f: stepRows(200, 12, 10, 15.19, 0.3) }] },
+  { r: '천안·아산', u: '나사렛대학교', d: '재활스포츠학부', total: 90, src: both('나사렛대학교'), other: [], note: '3종목 합계 90점을 실기 900점으로 반영합니다. 환산 방법은 요강에 나와 있지 않습니다.',
+    ev: [{ id: 'jump', max: 35, floor: 20, m: stepRows(35, 15, 1, 290, -2), f: stepRows(35, 15, 1, 235, -2) }, { id: 'run10', max: 25, floor: 10, m: stepRows(25, 15, 1, 8.1, 0.1), f: stepRows(25, 15, 1, 9.2, 0.1) }, { id: 'situp', max: 30, floor: 15, m: stepRows(30, 15, 1, 70, -1), f: stepRows(30, 15, 1, 63, -1) }] },
+  { r: '서울·경기', u: '상명대학교', d: '스포츠건강관리전공', total: null, src: jsOnly('상명대학교'), other: ['메디신볼 던지기 (30%)'], note: '종목마다 100점 만점이고 제자리멀리뛰기 35%, 20m 왕복달리기 35%, 메디신볼 30%로 반영합니다.',
+    ev: [{ id: 'jump', max: 100, floor: 0, m: stepRows(100, 14, 5, 310, -3), f: stepRows(100, 14, 5, 250, -3) }, { id: 'run20', max: 100, floor: 0, m: stepRows(100, 14, 5, 15.0, 0.2), f: stepRows(100, 14, 5, 16.4, 0.2) }] },
+  { r: '서울·경기', u: '용인대학교', d: '스포츠레저학과', total: 350, src: jsOnly('용인대학교'), other: ['10m 반복달리기 175점'], note: '10m 반복달리기는 앱의 10m 왕복달리기와 재는 방법이 달라 넣지 않았습니다.',
+    ev: [{ id: 'jump', max: 175, floor: 0, m: stepRows(175, 11, 10, 300, -5), f: stepRows(175, 11, 10, 250, -5) }] },
+  { r: '서울·경기', u: '용인대학교', d: '체육학과', total: 150, src: jsOnly('용인대학교'), other: ['10m 반복달리기 75점'], note: '10m 반복달리기는 앱의 10m 왕복달리기와 재는 방법이 달라 넣지 않았습니다.',
+    ev: [{ id: 'jump', max: 75, floor: 0, m: stepRows(75, 20, 3, 295, -2), f: stepRows(75, 20, 3, 245, -2) }] },
+  { r: '서울·경기', u: '용인대학교', d: '특수체육교육과', total: 150, src: jsOnly('용인대학교'), other: ['10m 반복달리기 75점'], note: '10m 반복달리기는 앱의 10m 왕복달리기와 재는 방법이 달라 넣지 않았습니다.',
+    ev: [{ id: 'jump', max: 75, floor: 0, m: YI_S.map((sc, k) => [sc, [284, 276, 269, 261, 253, 246, 238, 230, 223, 215][k]]), f: YI_S.map((sc, k) => [sc, [231, 222, 212, 203, 193, 184, 174, 165, 155, 146][k]]) }] },
+  { r: '서울·경기', u: '수원대학교', d: '스포츠과학부 (기초체력 실기)', total: 600, src: jsOnly('수원대학교'), other: ['지그재그런 200점', '배근력 200점'], note: '기초체력 실기 기준입니다. 전공실기로 지원하면 제자리멀리뛰기가 150점 만점입니다.',
+    ev: [{ id: 'jump', max: 200, floor: 70, m: SW_C(300), f: SW_C(246) }] },
+  { r: '서울·경기', u: '강남대학교', d: '체육학과', total: 800, src: { 정시: CDN + '강남대학교/강남대학교_2027학년도_정시모집요강.pdf', 수시: CDN + '강남대학교/강남대학교_2027학년도_수시모집요강.pdf' }, other: ['메디신볼 던지기 200점', '사이드스텝 200점'],
     ev: [{ id: 'run10', max: 200, floor: 0, m: stepRows(200, 20, 10, 7.8, 0.1), f: stepRows(200, 20, 10, 8.8, 0.1) }, { id: 'jump', max: 200, floor: 0, m: stepRows(200, 20, 10, 288, -2), f: stepRows(200, 20, 10, 238, -2) }] },
-  { u: '경기대학교', d: '스포츠과학부', total: null, src: { 정시: CDN + '경기대학교/경기대학교_2027학년도_정시모집요강.pdf' }, other: ['메디신볼던지기'],
+  { r: '서울·경기', u: '경기대학교', d: '스포츠과학부', total: null, src: { 정시: CDN + '경기대학교/경기대학교_2027학년도_정시모집요강.pdf' }, other: ['메디신볼던지기'],
     ev: [Object.assign({ id: 'run20', max: 100, floor: 48 }, { m: stepRows(100, 13, 4, 13.4, 0.1), f: stepRows(100, 13, 4, 15.4, 0.1) }), { id: 'jump', max: 100, floor: 48, m: stepRows(100, 13, 4, 300, -2), f: stepRows(100, 13, 4, 250, -2) }] },
-  { u: '경기대학교', d: '경호보안학과', total: null, src: { 정시: CDN + '경기대학교/경기대학교_2027학년도_정시모집요강.pdf' }, other: ['메디신볼던지기'],
+  { r: '서울·경기', u: '경기대학교', d: '경호보안학과', total: null, src: { 정시: CDN + '경기대학교/경기대학교_2027학년도_정시모집요강.pdf' }, other: ['메디신볼던지기'],
     ev: [Object.assign({ id: 'run20', max: 100, floor: 50 }, pair([100, 98, 96, 94, 92, 90, 88, 86, 80, 74, 68, 62, 56], [13.5, 13.6, 13.7, 13.8, 13.9, 14, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7], 2)),
       Object.assign({ id: 'jump', max: 100, floor: 50 }, pair([100, 98, 96, 94, 92, 90, 88, 86, 80, 74, 68, 62, 56], [300, 298, 296, 294, 292, 290, 288, 286, 284, 282, 280, 278, 276], -50))] },
-  { u: '한경국립대학교', d: '스포츠과학과', total: 100, src: { 정시: CDN + '한경국립대학교/한경국립대학교_2027학년도_정시모집요강.pdf' }, other: ['배근력 30점'],
+  { r: '서울·경기', u: '한경국립대학교', d: '스포츠과학과', total: 100, src: { 정시: CDN + '한경국립대학교/한경국립대학교_2027학년도_정시모집요강.pdf' }, other: ['배근력 30점'],
     ev: [{ id: 'jump', max: 40, floor: 20, m: stepRows(40, 10, 2, 286, -5), f: stepRows(40, 10, 2, 236, -5) }, { id: 'run10', max: 30, floor: 10, m: stepRows(30, 10, 2, 8.49, 0.2), f: stepRows(30, 10, 2, 9.49, 0.2) }] },
-  { u: '가톨릭관동대학교', d: '스포츠레저학전공', total: 400, src: { 수시: 'https://www.cku.ac.kr/sites/iphak/atchmnfl/pdfView/6/temp_1780905720656100.pdf' }, other: [],
+  { r: '그 밖', u: '가톨릭관동대학교', d: '스포츠레저학전공', total: 400, src: { 수시: 'https://www.cku.ac.kr/sites/iphak/atchmnfl/pdfView/6/temp_1780905720656100.pdf' }, other: [],
     ev: [{ id: 'jump', max: 134, floor: 69, m: stepRows(134, 13, 5, 290, -5), f: stepRows(134, 13, 5, 235, -3) }, { id: 'run10', max: 133, floor: 68, m: stepRows(133, 13, 5, 8.2, 0.3), f: stepRows(133, 13, 5, 9.2, 0.3) }, { id: 'flex', max: 133, floor: 68, m: stepRows(133, 13, 5, 28, -1), f: stepRows(133, 13, 5, 30, -1) }] }
+
 ];
-const uni = { adm: '정시', sel: null, manual: {} };
+const uni = { adm: '정시', reg: '', sel: null, manual: {}, rank: null, rankKey: '', rankMsg: '' };
+const uid = () => { let v = store.get('pe.uid', ''); if (!v) { v = Date.now().toString(36) + Math.random().toString(36).slice(2, 12); store.set('pe.uid', v); } return v; };
+const uniKey = (U) => U.u + ' ' + U.d, uUnit = (id) => id === 'situp' ? '회' : id === 'jump' || id === 'flex' || id === 'sargent' ? 'cm' : '초';
 function uniScore(e, v, sex) { const low = (EVENTS.find(x => x.id === e.id) || {}).lower; for (const [sc, t] of e[sex]) if (low ? v <= t : v >= t) return sc; return e.floor; }
+function uniCalc(U, sex, b) { // 종목별 내 기록과 점수
+  let sum = 0, mx = 0; const recs = {};
+  const rows = U.ev.map(e => { const key = UNI.indexOf(U) + e.id, manual = uni.manual[key] != null, mine = manual ? uni.manual[key] : (b[e.id] ? b[e.id].value : null), sc = mine == null ? null : uniScore(e, mine, sex); mx += e.max; if (sc != null) { sum += sc; recs[e.id] = mine; } return { e, key, manual, mine, sc }; });
+  return { rows, sum, mx, recs };
+}
+async function uniRankLoad(U, body) {
+  const k = uniKey(U) + '|' + uni.adm; uni.rankKey = k;
+  try { const x = body ? await api(body.a, Object.assign({ uni: uniKey(U), adm: uni.adm, uid: uid() }, body)) : await api('uniRank', null, { uni: uniKey(U), adm: uni.adm, uid: uid() }); if (uni.rankKey === k) { uni.rank = x.rows; uni.rankMsg = ''; } }
+  catch (e) { if (uni.rankKey === k) { uni.rank = null; uni.rankMsg = e.message; } }
+  if (uni.rankKey === k) uniRankView(U);
+}
+function uniRankView(U) {
+  const host = $('#uniRank'); if (!host) return; const rows = uni.rank, sex = store.get('pe.sex', '');
+  if (!rows) { host.innerHTML = `<p class="small muted">${esc(uni.rankMsg || '랭킹을 불러오는 중…')}</p>`; return; }
+  const view = rows.filter(x => !uni.rankSex || x.sex === uni.rankSex), mine = rows.find(x => x.me);
+  host.innerHTML = `<div class="seg" role="group" aria-label="랭킹 성별"><button data-rs="" aria-pressed="${!uni.rankSex}">전체</button><button data-rs="m" aria-pressed="${uni.rankSex === 'm'}">남</button><button data-rs="f" aria-pressed="${uni.rankSex === 'f'}">여</button></div>
+    ${view.length ? view.map((x, i) => `<div class="rec" style="${x.me ? 'background:var(--soft,#EEF1FD);border-radius:10px;padding-left:8px;padding-right:8px' : ''}"><div class="v" style="min-width:44px">${i + 1}<small>위</small></div><div class="m"><b>${esc(x.name)}${x.me ? ' (나)' : ''} · ${x.sex === 'm' ? '남' : '여'}</b>${U.ev.filter(e => x.recs && x.recs[e.id] != null).map(e => `${evName(e.id)} ${x.recs[e.id]}${uUnit(e.id)}`).join(' · ')}</div><span class="pill good">${x.score} / ${x.mx}점</span></div>`).join('') : '<p class="empty">아직 올라온 기록이 없어요. 첫 번째로 올려 보세요.</p>'}
+    ${mine ? '<div class="row"><button class="ghost" id="uniOut">내 기록 랭킹에서 내리기</button></div>' : ''}`;
+  host.querySelectorAll('[data-rs]').forEach(b => b.onclick = () => { uni.rankSex = b.dataset.rs; uniRankView(U); });
+  const out = $('#uniOut'); if (out) out.onclick = () => uniRankLoad(U, { a: 'uniDel' });
+}
 function renderUni() {
-  const q = $('#uniQ').value.trim(), list = UNI.filter(x => x.src[uni.adm] && (!q || (x.u + x.d).includes(q))), sex = store.get('pe.sex', ''), b = bestsOf(store.get('pe.history', []));
+  const q = $('#uniQ').value.trim(), list = UNI.filter(x => x.src[uni.adm] && (!uni.reg || x.r === uni.reg) && (!q || (x.u + x.d).includes(q))), sex = store.get('pe.sex', ''), b = bestsOf(store.get('pe.history', []));
   document.querySelectorAll('[data-adm]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.adm === uni.adm)));
+  document.querySelectorAll('[data-reg]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.reg === uni.reg)));
   if (!list.includes(uni.sel)) uni.sel = list[0] || null;
-  $('#uniList').innerHTML = list.length ? list.map(x => `<button data-uni="${UNI.indexOf(x)}" aria-pressed="${x === uni.sel}" style="${x === uni.sel ? 'background:var(--accent);color:#fff;border-color:var(--accent)' : ''}">${x.u.replace('학교', '')} ${x.d}</button>`).join('') : `<p class="empty">${q ? '찾는 대학이 아직 없습니다.' : '이 모집 시기로 넣어 둔 대학이 아직 없습니다.'} 지금은 ${UNI.length}개 학과만 들어 있고 차례로 늘리고 있어요.</p>`;
+  $('#uniList').innerHTML = list.length ? list.map(x => `<button data-uni="${UNI.indexOf(x)}" aria-pressed="${x === uni.sel}" style="${x === uni.sel ? 'background:var(--accent);color:#fff;border-color:var(--accent)' : ''}">${x.u.replace('학교', '')} ${x.d}</button>`).join('') : `<p class="empty">${q ? '찾는 대학이 아직 없습니다.' : '이 조건으로 넣어 둔 대학이 아직 없습니다.'} 지금은 ${UNI.length}개 학과가 들어 있어요.</p>`;
   $('#uniList').querySelectorAll('[data-uni]').forEach(x => x.onclick = () => { uni.sel = UNI[+x.dataset.uni]; renderUni(); });
   const U = uni.sel, host = $('#uniRes'); if (!U) { host.innerHTML = ''; return; }
   if (!sex) { host.innerHTML = '<p class="err small">내 정보 탭에서 성별을 먼저 골라 주세요. 배점표가 남녀로 나뉘어 있습니다.</p>'; return; }
-  let sum = 0, mx = 0; const rows = U.ev.map(e => { const ev = EVENTS.find(x => x.id === e.id), key = UNI.indexOf(U) + e.id, mine = uni.manual[key] != null ? uni.manual[key] : (b[e.id] ? b[e.id].value : null), sc = mine == null ? null : uniScore(e, mine, sex); mx += e.max; if (sc != null) sum += sc;
-    const top = e[sex][0][1]; return `<div class="chg"><b>${ev.name}</b><span class="row" style="gap:4px"><input type="number" step="0.01" data-uk="${key}" value="${mine == null ? '' : mine}" aria-label="${ev.name} 기록" style="width:86px"> ${ev.id === 'jump' || ev.id === 'flex' ? 'cm' : '초'}</span><span class="n">${sc == null ? '기록 없음' : sc + ' / ' + e.max + '점'}</span><span class="muted small" style="flex-basis:100%">만점 기준 ${top}${ev.lower ? ' 이하' : ' 이상'}${uni.manual[key] != null ? ' · 직접 넣은 기록' : mine != null ? ' · 내 최고 기록' : ''}</span></div>`; }).join('');
-  host.innerHTML = `<div class="tip"><div class="row between"><h3>${U.u} ${U.d} · ${uni.adm} · ${sex === 'm' ? '남' : '여'}</h3><span class="pill good">${sum} / ${mx}점</span></div>${rows}
-    ${U.other.length ? `<p class="small muted">앱에서 재지 않는 종목: ${U.other.join(', ')}. 이 점수는 합계에 들어 있지 않습니다.</p>` : ''}${U.total ? `<p class="small muted">실기 전체 만점은 ${U.total}점입니다.</p>` : ''}
-    <p class="small"><a href="${encodeURI(U.src[uni.adm])}" target="_blank" rel="noopener">${U.u} 2027학년도 ${uni.adm} 모집요강 원문</a></p></div>`;
+  const C = uniCalc(U, sex, b);
+  const rows = C.rows.map(({ e, key, manual, mine, sc }) => { const ev = EVENTS.find(x => x.id === e.id), top = e[sex][0][1];
+    return `<div class="chg"><b>${ev.name}</b><span class="row" style="gap:4px"><input type="number" step="0.01" data-uk="${key}" value="${mine == null ? '' : mine}" aria-label="${ev.name} 기록" style="width:86px"> ${uUnit(e.id)}</span><span class="n">${sc == null ? '기록 없음' : sc + ' / ' + e.max + '점'}</span><span class="muted small" style="flex-basis:100%">만점 기준 ${top}${ev.lower ? ' 이하' : ' 이상'}${manual ? ' · 직접 넣은 기록' : mine != null ? ' · 내 최고 기록' : ''}</span></div>`; }).join('');
+  host.innerHTML = `<div class="tip"><div class="row between"><h3>${U.u} ${U.d} · ${uni.adm} · ${sex === 'm' ? '남' : '여'}</h3><span class="pill good">${C.sum} / ${C.mx}점</span></div>${rows}
+    ${U.other.length ? `<p class="small muted">앱에서 재지 않는 종목: ${U.other.join(', ')}. 이 점수는 합계에 들어 있지 않습니다.</p>` : ''}${U.note ? `<p class="small muted">${U.note}</p>` : ''}${U.total ? `<p class="small muted">실기 전체 만점은 ${U.total}점입니다.</p>` : ''}
+    <p class="small"><a href="${encodeURI(U.src[uni.adm])}" target="_blank" rel="noopener">${U.u} 2027학년도 ${uni.adm} 모집요강 원문</a></p></div>
+    <div class="tip"><div class="row between"><h3>${U.u.replace('학교', '')} ${U.d} 랭킹</h3><span class="pill">${uni.adm}</span></div>
+    <p class="small muted">이 학교에 기록을 올린 사람끼리 점수와 순위를 봅니다. 올리면 이름·성별·종목 기록·점수가 이 학교 랭킹을 여는 모든 사람에게 보입니다.</p>
+    <div class="row"><button class="primary" id="uniUp">내 기록 랭킹에 올리기</button><span class="small" id="uniUpMsg"></span></div><div id="uniRank"></div></div>`;
   host.querySelectorAll('[data-uk]').forEach(i => i.onchange = () => { if (i.value === '') delete uni.manual[i.dataset.uk]; else uni.manual[i.dataset.uk] = +i.value; setTimeout(renderUni, 0); });
+  $('#uniUp').onclick = () => { const m = $('#uniUpMsg');
+    if (!app.name) { m.textContent = '내 정보 탭에서 이름을 먼저 적어 주세요.'; return; }
+    if (!Object.keys(C.recs).length) { m.textContent = '올릴 기록이 없습니다. 종목을 측정하거나 기록을 직접 넣어 주세요.'; return; }
+    m.textContent = '올리는 중…'; uniRankLoad(U, { a: 'uniAdd', name: app.name, sex, score: C.sum, mx: C.mx, recs: C.recs }).then(() => { const mm = $('#uniUpMsg'); if (mm) mm.textContent = uni.rankMsg || '올렸습니다. 기록이 좋아지면 다시 눌러 갱신하세요.'; }); };
+  const k = uniKey(U) + '|' + uni.adm; if (uni.rankKey !== k) { uni.rank = null; uni.rankMsg = ''; uniRankLoad(U); } uniRankView(U);
 }
 document.querySelectorAll('[data-adm]').forEach(x => x.onclick = () => { uni.adm = x.dataset.adm; renderUni(); });
 $('#uniQ').oninput = renderUni;
+document.querySelectorAll('[data-reg]').forEach(x => x.onclick = () => { uni.reg = x.dataset.reg; renderUni(); });
 $('#mySex').onchange = (e) => store.set('pe.sex', e.target.value);
 
 /* ── 화면 전환 ── */
@@ -1226,7 +1380,7 @@ function show(id) {
   $('#back').classList.toggle('hidden', id !== 'work'); if (id !== 'work') $('#barTitle').textContent = '실기핏';
   window.scrollTo(0, 0);
 }
-function showTab(id) { liveClose(); shAbort(); shCamClose(); show(id); if (id === 'home') renderHome(); if (id === 'records') { renderRecords(); renderUni(); } if (id === 'my') { $('#athlete').value = app.name; $('#myH').value = cfgOf('jump').heightCm; $('#mySex').value = store.get('pe.sex', ''); cloudView(); }
+function showTab(id) { liveClose(); shAbort(); shCamClose(); show(id); if (id === 'home') renderHome(); if (id === 'records') { renderRecords(); renderUni(); } if (id === 'my') { $('#athlete').value = app.name; $('#myH').value = cfgOf('jump').heightCm; $('#mySex').value = store.get('pe.sex', ''); cloudView(); renderMy(); }
   if (id === 'admin') { if (cloud.admin) renderAdmin(); else return go('my'); }
   if (id === 'feed') { if (cloud.grp) renderFeed(); else return go('my'); }
   if ((id === 'home' || id === 'records') && cloud.grp) cloudSync().then((ok) => { if (ok && !$('#' + id).classList.contains('hidden')) (id === 'home' ? renderHome : renderRecords)(); }); }
@@ -1244,7 +1398,7 @@ async function loadMain(file) {
   $('#playerCard').classList.remove('hidden'); $('#setupCard').classList.remove('hidden'); $('#results').classList.add('hidden'); $('#runErr').classList.add('hidden');
   app.ref = null; const ph = document.createElement('div'); $('#player').replaceWith(ph); ph.id = 'player'; app.me = new Player(ph);
   try { await app.me.load(file); } catch (e) { $('#runErr').textContent = e.message; $('#runErr').classList.remove('hidden'); return; }
-  app.me.fileKey = `${file.name}|${file.size}|${file.lastModified}`;
+  app.me.fileKey = `${file.name}|${file.size}|${file.lastModified}`; app.me.file = file;
   { const sp = store.get('pe.pts', {})[ptsKey(app.me)]; if (sp && sp.length >= needPts()[0]) app.me.pts = sp; } // 같은 영상에 전에 찍은 점을 그대로 쓴다
   cfgOf(app.ev.id).startT = null; updTrim(); renderSetup(); setStep(2);
   const sec = Math.round(app.me.dur * (cfgOf(app.ev.id).fps || app.ev.fps) * 0.09);
@@ -1268,7 +1422,7 @@ $('#athlete').oninput = (e) => { app.name = e.target.value; store.set('pe.name',
 $('#myH').onchange = (e) => { EVENTS.forEach(v => { if (Analysis.DEF[v.id]) cfgOf(v.id).heightCm = +e.target.value || 170; }); saveCfg(); };
 $('#resetCfg').onclick = () => { app.cfg = { _models: app.cfg._models }; cfgInit.clear(); saveCfg(); $('#myH').value = cfgOf('jump').heightCm; $('#resetMsg').textContent = '처음 값으로 되돌렸어요.'; };
 let wipeArmed = 0;
-$('#wipe').onclick = (e) => { if (!wipeArmed) { wipeArmed = 1; e.target.textContent = '한 번 더 누르면 지워집니다'; setTimeout(() => { wipeArmed = 0; e.target.textContent = '기록 모두 지우기'; }, 4000); return; } store.set('pe.history', []); wipeArmed = 0; e.target.textContent = '기록 모두 지우기'; $('#wipeMsg').textContent = '모두 지웠어요.'; };
+$('#wipe').onclick = (e) => { if (!wipeArmed) { wipeArmed = 1; e.target.textContent = '한 번 더 누르면 지워집니다'; setTimeout(() => { wipeArmed = 0; e.target.textContent = '기록 모두 지우기'; }, 4000); return; } store.set('pe.history', []); store.set('pe.vids', []); dstore.clear(); renderMy(); wipeArmed = 0; e.target.textContent = '기록 모두 지우기'; $('#wipeMsg').textContent = '모두 지웠어요.'; };
 window.addEventListener('hashchange', route);
 cloudView(); route(); engineStatus();
 </script>

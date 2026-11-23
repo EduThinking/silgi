@@ -9,6 +9,8 @@ const init = () => ready || (ready = (async () => {
   await sql`CREATE TABLE IF NOT EXISTS records (id bigserial PRIMARY KEY, grp text NOT NULL, name text NOT NULL, ev text NOT NULL, value real NOT NULL, unit text NOT NULL, ok boolean NOT NULL, note text, info boolean, at timestamptz NOT NULL DEFAULT now())`;
   await sql`CREATE INDEX IF NOT EXISTS records_grp_at ON records (grp, at DESC)`;
   try { await sql`ALTER TABLE groups ADD COLUMN IF NOT EXISTS join_hash text`; } catch (e) { }
+  await sql`CREATE TABLE IF NOT EXISTS uni_ranks (id bigserial PRIMARY KEY, uni text NOT NULL, adm text NOT NULL, uid text NOT NULL, name text NOT NULL, sex text NOT NULL, score real NOT NULL, mx real NOT NULL, recs jsonb, at timestamptz NOT NULL DEFAULT now())`;
+  await sql`CREATE INDEX IF NOT EXISTS uni_ranks_uni ON uni_ranks (uni, adm)`;
   await sql`CREATE TABLE IF NOT EXISTS shares (id bigserial PRIMARY KEY, grp text NOT NULL, name text NOT NULL, ev text NOT NULL, value real NOT NULL, unit text NOT NULL, ok boolean NOT NULL, note text, data jsonb, video_url text, at timestamptz NOT NULL DEFAULT now())`;
 })().catch((e) => { ready = null; throw e; }));
 const hash = (s) => crypto.createHash('sha256').update('silgi:' + s).digest('hex');
@@ -23,6 +25,21 @@ module.exports = async (req, res) => {
   try {
     await init();
     const q = req.query || {}, b = req.body && typeof req.body === 'object' ? req.body : {}, a = str(q.a, 20);
+    // ── 대학별 랭킹: 소속과 상관없이 같은 대학·모집 시기에 기록을 올린 사람끼리 본다
+    if (a === 'uniAdd' || a === 'uniRank' || a === 'uniDel') {
+      const uni = str(b.uni ?? q.uni, 60), adm = str(b.adm ?? q.adm, 4), uid = str(b.uid ?? q.uid, 40);
+      if (!uni || !['정시', '수시'].includes(adm)) return fail(400, '대학 정보가 맞지 않습니다.');
+      if (a !== 'uniRank' && uid.length < 8) return fail(400, '기기 정보가 없습니다.');
+      if (a === 'uniAdd') {
+        const nm = str(b.name, 30), sex = str(b.sex, 1), score = Number(b.score), mx = Number(b.mx), recs = JSON.stringify(b.recs || {});
+        if (!nm || !['m', 'f'].includes(sex) || !isFinite(score) || !isFinite(mx) || recs.length > 2000) return fail(400, '이름·성별·기록을 확인해 주세요.');
+        await sql`DELETE FROM uni_ranks WHERE uni = ${uni} AND adm = ${adm} AND uid = ${uid}`;
+        await sql`INSERT INTO uni_ranks (uni, adm, uid, name, sex, score, mx, recs) VALUES (${uni}, ${adm}, ${uid}, ${nm}, ${sex}, ${score}, ${mx}, ${recs}::jsonb)`;
+      }
+      if (a === 'uniDel') await sql`DELETE FROM uni_ranks WHERE uni = ${uni} AND adm = ${adm} AND uid = ${uid}`;
+      const rows = await sql`SELECT uid, name, sex, score, mx, recs, at FROM uni_ranks WHERE uni = ${uni} AND adm = ${adm} ORDER BY score DESC, at ASC LIMIT 300`;
+      return res.json({ rows: rows.map(r => ({ me: !!uid && r.uid === uid, name: r.name, sex: r.sex, score: r.score, mx: r.mx, recs: typeof r.recs === 'string' ? JSON.parse(r.recs) : r.recs, at: r.at })) });
+    }
     const grp = str(b.grp ?? q.grp, 30).toLowerCase(), key = str(b.key ?? q.key, 100), name = str(b.name ?? q.name, 30);
     if (!/^[a-z0-9가-힣_-]{2,30}$/.test(grp)) return fail(400, '소속 코드는 2~30자의 한글·영문·숫자로 입력해 주세요.');
     const g = (await sql`SELECT * FROM groups WHERE code = ${grp}`)[0], pw = str((Buffer.isBuffer(b) ? null : b.pw) ?? q.pw, 100);
