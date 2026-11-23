@@ -316,6 +316,7 @@ const LINES_UI = (pl) => pickUI(pl, ['머리끝', '발바닥'], ['<b>① 머리�
 const TAPE_HELP = (c) => ['<b>① 출발선 가까운 끝</b>: 출발선 테이프에서 <b>발끝이 놓이는 쪽 가장자리</b>의, 카메라에 가까운 끝을 찍습니다.', '<b>② 출발선 먼 끝</b>: 같은 가장자리의 카메라에서 먼 끝을 찍습니다. ①과 ②를 이은 선이 테이프 가장자리와 겹쳐야 합니다.', `<b>③ 거리선 가까운 끝</b>: ${c.markCm}cm 테이프에서 <b>${c.markCm}cm가 끝나는 쪽 가장자리</b>의 카메라에 가까운 끝을 찍습니다.`, '<b>④ 거리선 먼 끝</b>: 같은 가장자리의 먼 끝을 찍습니다. 테이프가 길수록(30cm 이상) 정확합니다.'];
 const saveCfg = () => store.set('pe.cfg', app.cfg);
 if (store.get('pe.cfgv', 0) < 2) { if (app.cfg.jump) app.cfg.jump.calibMode = 'height'; store.set('pe.cfgv', 2); saveCfg(); }
+if (store.get('pe.cfgv', 0) < 3) { if (app.cfg.flex && app.cfg.flex.tipOffsetCm === 6) app.cfg.flex.tipOffsetCm = 9; store.set('pe.cfgv', 3); saveCfg(); } // 손끝 보정 기본값 6 → 9cm
 
 /* ── 포즈 엔진 ── */
 const engine = {
