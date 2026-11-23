@@ -311,7 +311,7 @@ const app = { ev: null, me: null, ref: null, cfg: store.get('pe.cfg', {}), name:
 const cfgInit = new Set();
 const cfgOf = (id) => cfgInit.has(id) ? app.cfg[id] : (cfgInit.add(id), app.cfg[id] = Object.assign({ calibMode: 'line', markCm: 200, heightCm: 170, refHeightCm: 175, fps: null }, JSON.parse(JSON.stringify(Analysis.DEF[id])), app.cfg[id], Analysis.DEF[id].ref ? { ref: JSON.parse(JSON.stringify(Analysis.DEF[id].ref)) } : {}));
 const NUMS = ['①', '②', '③', '④'];
-const needPts = () => { const c = cfgOf(app.ev.id); return c.calibMode === 'tape4' && app.ev.id === 'jump' ? [4, 4] : c.calibMode === 'lines' ? [2, 2] : c.calibMode !== 'line' ? [0, 0] : app.ev.id === 'jump' ? [2, 2] : app.ev.dist ? [1, 2] : [0, 0]; };
+const needPts = () => { const c = cfgOf(app.ev.id); return c.calibMode === 'tape4' && app.ev.id === 'jump' ? [4, 4] : c.calibMode === 'lines' ? [2, 2] : c.calibMode === 'tape' && app.ev.id === 'flex' ? [2, 3] : c.calibMode !== 'line' ? [0, 0] : app.ev.id === 'jump' ? [2, 2] : app.ev.dist ? [1, 2] : [0, 0]; };
 const LINES_UI = (pl) => pickUI(pl, ['머리끝', '발바닥'], ['<b>① 머리끝</b>: 똑바로 서 있는 장면에서 정수리 높이를 찍습니다. 묶은 머리나 모자는 빼고 맞춥니다. 맞으면 위의 ②를 누르세요.', '<b>② 발바닥</b>: 신발 바닥이 땅에 닿는 높이를 찍습니다. 키 칸에는 신발을 신은 키(맨발 키에 2~3cm 더한 값)를 넣어야 맞습니다.']);
 const TAPE_HELP = (c) => ['<b>① 출발선 가까운 끝</b>: 출발선 테이프에서 <b>발끝이 놓이는 쪽 가장자리</b>의, 카메라에 가까운 끝을 찍습니다.', '<b>② 출발선 먼 끝</b>: 같은 가장자리의 카메라에서 먼 끝을 찍습니다. ①과 ②를 이은 선이 테이프 가장자리와 겹쳐야 합니다.', `<b>③ 거리선 가까운 끝</b>: ${c.markCm}cm 테이프에서 <b>${c.markCm}cm가 끝나는 쪽 가장자리</b>의 카메라에 가까운 끝을 찍습니다.`, '<b>④ 거리선 먼 끝</b>: 같은 가장자리의 먼 끝을 찍습니다. 테이프가 길수록(30cm 이상) 정확합니다.'];
 const saveCfg = () => store.set('pe.cfg', app.cfg);
@@ -457,6 +457,18 @@ function drawLoupe(g, vid, o, cw) { // 손가락에 가려지는 자리를 3배�
   try { g.drawImage(vid, p.x - sw / 2, p.y - sw / 2, sw, sw, cx - R, cy - R, 2 * R, 2 * R); } catch (e) { }
   g.restore(); g.strokeStyle = '#FFD164'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.moveTo(cx - R, cy); g.lineTo(cx + R, cy); g.moveTo(cx, cy - R); g.lineTo(cx, cy + R); g.stroke();
 }
+function findRedTape(pl) { // 지금 장면에서 가로로 긴 빨간 띠를 찾아 양 끝을 돌려준다
+  try {
+    const w = 640, sc = w / pl.W, h = Math.round(pl.H * sc), cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(pl.v, 0, 0, w, h);
+    const d = g.getImageData(0, 0, w, h).data, red = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) { const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2]; red[i] = r > 120 && r > 1.7 * gg && r > 1.7 * b ? 1 : 0; }
+    let best = null; const seen = new Uint8Array(w * h), st = [];
+    for (let s0 = 0; s0 < w * h; s0++) { if (!red[s0] || seen[s0]) continue; let x0 = w, x1 = 0, y0 = h, y1 = 0, n = 0, sy = 0; st.push(s0); seen[s0] = 1;
+      while (st.length) { const i = st.pop(), x = i % w, y = (i - x) / w; n++; sy += y; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0]]) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue; const j = yy * w + xx; if (red[j] && !seen[j]) { seen[j] = 1; st.push(j); } } }
+      const bw = x1 - x0 + 1, bh = y1 - y0 + 1; if (bw >= 12 && bw >= 3 * bh && n >= 0.4 * bw * bh && (!best || bw > best.bw)) best = { bw, x0, x1, y: sy / n }; }
+    return best ? [{ x: best.x0 / sc, y: best.y / sc }, { x: (best.x1 + 1) / sc, y: best.y / sc }] : null;
+  } catch (e) { return null; }
+}
 function pickUI(pl, labels, helps) {
   const a = Math.min(pl.act || 0, pl.pts.length);
   return `<div class="seg" role="group" aria-label="찍을 지점">${labels.map((l, i) => `<button data-act="${i}" aria-pressed="${a === i}" ${i > pl.pts.length ? 'disabled' : ''}>${NUMS[i]} ${l}${pl.pts[i] ? ' ✓' : ''}</button>`).join('')}</div>
@@ -553,6 +565,7 @@ function optsFor(pl, isRef) {
   const c = cfgOf(app.ev.id), id = app.ev.id, h = isRef ? c.refHeightCm : c.heightCm;
   if (id === 'situp') return { cfg: Object.assign({}, c, isRef ? { startT: null } : pl.liveStart ? { startT: 0 } : {}) };
   if (app.ev.dist) { const ln = c.calibMode === 'line'; return { cfg: c, heightCm: h, dist: app.ev.dist, auto: !ln, lineX: ln && pl.pts[0] ? pl.pts[0].x : NaN, farX: ln && pl.pts[1] ? pl.pts[1].x : NaN }; }
+  if (id === 'flex' && !isRef && c.calibMode === 'tape' && pl.pts.length >= 2) return { cfg: c, heightCm: h, tape: { x0: pl.pts[0].x, y0: pl.pts[0].y, x1: pl.pts[1].x, y1: pl.pts[1].y, cm: c.tapeCm || 20 }, tipX: pl.pts[2] ? pl.pts[2].x : NaN };
   if (!isRef && c.calibMode === 'lines' && pl.pts.length === 2) return { cfg: c, heightCm: h, pxPerCm: Math.abs(pl.pts[1].y - pl.pts[0].y) / c.heightCm };
   if (id === 'jump' && !isRef && c.calibMode === 'tape4' && pl.pts.length === 4) return { cfg: c, floor: { pts: pl.pts.map(q => ({ x: q.x, y: q.y })), cm: c.markCm } };
   if (id === 'jump' && !isRef && c.calibMode === 'line' && pl.pts.length === 2) {
@@ -702,18 +715,20 @@ function renderSetup() {
   } else {
     const run = !!app.ev.dist, f = app.ev.id === 'flex', sg = app.ev.id === 'sargent', lines = c.calibMode === 'lines';
     host.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">
+      ${f ? `<div class="seg" role="group" aria-label="거리 기준"><button data-mode="height" aria-pressed="${c.calibMode !== 'tape'}">키로 간편</button><button data-mode="tape" aria-pressed="${c.calibMode === 'tape'}">빨간 테이프 기준 (정확)</button></div>` + (c.calibMode === 'tape' ? `<p class="small">측정대 옆면 위쪽에, 발이 닿는 앞면 모서리부터 뒤쪽으로 빨간 테이프를 가로로 붙이고 그 길이를 아래에 적습니다. 테이프가 0cm 기준과 자 역할을 같이 합니다.</p><div class="row"><button id="tapeAuto">빨간 테이프 자동으로 찾기</button><span class="small" id="tapeMsg"></span></div>` + pickUI(pl, ['테이프 한쪽 끝', '테이프 반대쪽 끝', '손끝 (선택)'], ['<b>① 테이프 한쪽 끝</b>을 찍습니다. 앞끝·뒤끝 순서는 상관없습니다.', '<b>② 테이프 반대쪽 끝</b>을 찍습니다.', '<b>③ 손끝 (선택)</b>: 끝까지 민 장면으로 영상을 옮긴 뒤 가장 긴 손가락 끝을 찍습니다. 안 찍으면 앱이 손끝을 추정합니다.']) + `<div class="set">${numField('tapeCm', '테이프 길이', 'tapeCm', 1, 'cm')}</div>` : '') : ''}
       ${sg ? `<div class="seg" role="group" aria-label="높이 기준"><button data-mode="height" aria-pressed="${!lines}">키로 간편</button><button data-mode="lines" aria-pressed="${lines}">측정선 2개</button></div>` + (lines ? LINES_UI(pl) : '') : ''}
       ${run ? `<div class="seg" role="group" aria-label="측정 방식"><button data-mode="height" aria-pressed="${c.calibMode !== 'line'}">키로 간편 측정</button><button data-mode="line" aria-pressed="${c.calibMode === 'line'}">출발선 찍기 (정확)</button></div>` : ''}
       ${run && c.calibMode !== 'line' ? '<p class="small">아무것도 찍지 않아도 됩니다. 출발 자세에서 앞발 끝이 놓인 자리를 출발선으로 보고, 입력한 키로 거리를 어림합니다. 발끝을 출발선에 딱 맞추고 서서 출발하세요.</p>' : ''}
       ${run && c.calibMode === 'line' ? pickUI(pl, ['출발선', '반대편 선 (보이면)'], ['<b>① 출발선</b>: 수험생이 달리는 줄에서 출발선이 바닥에 닿는 곳을 찍습니다. 이 점을 지나는 세로선이 시간 측정 기준입니다.', `<b>② 반대편 선</b>: ${app.ev.dist}m 선이 화면에 보일 때만 찍습니다. 안 보이면 ①만 찍고 분석하세요.`]) : ''}
       <div class="set">${numField('heightCm', '수험생 키', 'heightCm', 1, 'cm')}
         ${run ? numField('laps', '왕복 횟수', 'laps', 1, '회') + `<label for="startMode">시간 시작 기준<select id="startMode" data-k="startMode"><option value="line">출발선을 넘는 순간</option><option value="move">첫 움직임</option></select></label>` : ''}
-        ${f ? numField('holdSec', '유지 시간', 'holdSec', 0.5, '초') + numField('kneeMin', '무릎 굽힘 기준', 'kneeMin', 1, '° 이상') + numField('tipOffsetCm', '손끝 보정', 'tipOffsetCm', 1, 'cm') : ''}
+        ${f ? numField('holdSec', '유지 시간', 'holdSec', 0.5, '초') + numField('kneeMin', '무릎 굽힘 기준', 'kneeMin', 1, '° 이상') + (c.calibMode === 'tape' ? numField('tipTapeCm', '손끝 보정', 'tipTapeCm', 1, 'cm') : numField('tipOffsetCm', '손끝 보정', 'tipOffsetCm', 1, 'cm')) : ''}
         ${f ? `<div class="field" style="flex-basis:100%"><label for="flexReal">측정대에 찍힌 실제 기록을 알면 (앱 기록을 여기에 맞춥니다)</label><div class="row"><input type="number" step="0.1" id="flexReal" placeholder="예: 18" style="width:110px"> cm <button id="flexFit">이 값에 맞추기</button></div><span class="small muted" id="flexFitMsg">한 번 맞춰 두면 같은 사람·같은 측정대에서는 다음 측정에도 그대로 적용됩니다.</span></div>` : ''}
         <label for="fps">추적 정밀도<select id="fps" data-k="fps"><option value="30">초당 30장 (기본)</option><option value="60">초당 60장 (60fps 영상)</option></select></label></div>
       ${run ? '<p class="small muted">왕복 횟수는 대학마다 다릅니다. 요강에 맞춰 바꾸세요.</p>' : ''}</div>`;
-    if (f && $('#flexFit')) $('#flexFit').onclick = () => { const v = parseFloat($('#flexReal').value), r = pl.result, m = $('#flexFitMsg'); if (!isFinite(v)) { m.textContent = '실제 기록을 숫자로 적어 주세요.'; return; } if (!r || !r.ok) { m.textContent = '먼저 영상을 분석한 뒤에 눌러 주세요.'; return; } c.tipOffsetCm = Math.round((c.tipOffsetCm + v - r.record.value) * 10) / 10; saveCfg(); renderSetup(); recompute(); const mm = $('#flexFitMsg'); if (mm) mm.textContent = `손끝 보정을 ${c.tipOffsetCm}cm로 맞췄습니다. 다음 측정부터도 이 값으로 계산합니다.`; };
-    if (run || sg) { bindPick(pl, host); host.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { pl.pts = []; pl.act = 0; c.calibMode = b.dataset.mode; saveCfg(); if (pl === live) livePreset(); if (needPts()[1]) pl.startPick(2); else { pl.picking = 0; pl.draw(); } renderSetup(); recompute(); if (pl === live) { $('#liveFrame').classList.toggle('pick', !!live.picking); liveHint(); } }); }
+    if (f && $('#flexFit')) $('#flexFit').onclick = () => { const v = parseFloat($('#flexReal').value), r = pl.result, m = $('#flexFitMsg'); if (!isFinite(v)) { m.textContent = '실제 기록을 숫자로 적어 주세요.'; return; } if (!r || !r.ok) { m.textContent = '먼저 영상을 분석한 뒤에 눌러 주세요.'; return; } const tk = c.calibMode === 'tape' ? 'tipTapeCm' : 'tipOffsetCm'; if (c.calibMode === 'tape' && pl.pts[2]) { m.textContent = '손끝을 직접 찍은 경우에는 보정이 필요 없습니다. ③ 손끝 위치를 다시 확인해 주세요.'; return; } c[tk] = Math.round((c[tk] + v - r.record.value) * 10) / 10; saveCfg(); renderSetup(); recompute(); const mm = $('#flexFitMsg'); if (mm) mm.textContent = `손끝 보정을 ${c[tk]}cm로 맞췄습니다. 다음 측정부터도 이 값으로 계산합니다.`; };
+    if (f && $('#tapeAuto')) $('#tapeAuto').onclick = () => { const t = findRedTape(pl), m = $('#tapeMsg'); if (!t) { m.textContent = '빨간 테이프를 찾지 못했습니다. 양 끝을 직접 찍어 주세요.'; return; } pl.pts = [t[0], t[1]].concat(pl.pts[2] ? [pl.pts[2]] : []); pl.act = 2; pl.draw(); renderSetup(); recompute(); const mm = $('#tapeMsg'); if (mm) mm.textContent = '찾았습니다. 영상에서 선이 테이프 양 끝에 맞는지 확인하세요. 다르면 직접 찍어 고치세요.'; };
+    if (run || sg || f) { bindPick(pl, host); host.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { pl.pts = []; pl.act = 0; c.calibMode = b.dataset.mode; saveCfg(); if (pl === live) livePreset(); if (needPts()[1]) pl.startPick(2); else { pl.picking = 0; pl.draw(); } renderSetup(); recompute(); if (pl === live) { $('#liveFrame').classList.toggle('pick', !!live.picking); liveHint(); } }); }
   }
   host.querySelectorAll('[data-k]').forEach(i => {
     if (i.tagName === 'SELECT') i.value = String(c[i.dataset.k] ?? app.ev.fps);

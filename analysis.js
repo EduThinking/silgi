@@ -326,7 +326,7 @@
 
   /* ───────── 공통: 설정 병합 ───────── */
   DEF.sargent = { ref: { knee: [70, 110], armTO: [120, 180], ext: [160, 180], drift: [0, 20], landKnee: [70, 130] } };
-  DEF.flex = { holdSec: 2, kneeMin: 160, tipOffsetCm: 5, ref: { hipAngle: [0, 55], kneeAngle: [160, 180], sway: [0, 2] } };
+  DEF.flex = { holdSec: 2, kneeMin: 160, tipOffsetCm: 5, tapeCm: 20, tipTapeCm: 10, ref: { hipAngle: [0, 55], kneeAngle: [160, 180], sway: [0, 2] } };
   DEF.run10 = { calibMode: 'height', laps: 2, startMode: 'line', ref: { lean: [25, 60], turn: [0, 1.2], hipLow: [45, 75], finDrop: [-100, 8] } };
   DEF.run20 = JSON.parse(JSON.stringify(DEF.run10));
   DEF.shuttle = { startKmh: 8.5, missLimit: 2 };
@@ -399,7 +399,8 @@
     const J = (i, key) => P[i][L[key][sd]], dir = Math.sign(median(P.map(f => f[L.ANK[sd]][0] - f[L.HIP[sd]][0]))) || 1, JK = [L.HIP[sd], L.KNEE[sd], L.ANK[sd]], JH = [L.SH[sd], L.HIP[sd], L.KNEE[sd]];
     // 몸 크기는 상체를 세우고 앉은 장면에서 잰다. 숙이면 어깨·엉덩이 점이 밀려 몸이 실제보다 크게 잡힌다.
     const leanOf = P.map(f => Math.abs(Math.atan2(f[L.SH[sd]][0] - f[L.HIP[sd]][0], f[L.HIP[sd]][1] - f[L.SH[sd]][1]))), lq = quant(leanOf, 0.3), up = []; for (let i = 0; i < n; i++) if (leanOf[i] <= lq) up.push(i);
-    const H = up.length >= 5 ? bodyH({ n: up.length, t: up.map(i => T[i]), p: up.map(i => P[i]) }) : bodyH(S), ppc = H / (o.heightCm || 170);
+    const H = up.length >= 5 ? bodyH({ n: up.length, t: up.map(i => T[i]), p: up.map(i => P[i]) }) : bodyH(S), tape = o.tape && isFinite(o.tape.x0) && isFinite(o.tape.x1) && o.tape.cm > 0 && Math.abs(o.tape.x1 - o.tape.x0) > 5 ? o.tape : null;
+    const ppc = tape ? Math.hypot(tape.x1 - tape.x0, (tape.y1 - tape.y0) || 0) / tape.cm : H / (o.heightCm || 170);
     // 손끝: 카메라 쪽 손(더 잘 보이는 손)의 검지 마디를 쓴다. 어깨에서 팔 길이보다 멀리 잡힌 점은 잘못 잡힌 것이라 버리고 앞 장면 값을 잇는다.
     const hv = [19, 20].map(j => median(P.map(f => f[j][2]))), hj = hv[1] >= hv[0] ? 20 : 19, hs = hj === 20 ? 12 : 11, armMax = 0.47 * H; let lastTip = null;
     const tipX = smooth(P.map(f => { const q = f[hj][2] > 0.3 ? f[hj] : f[hj === 20 ? 19 : 20], okQ = q[2] > 0.3 && dist(q, f[hs]) <= armMax, v = okQ ? q[0] * dir : lastTip != null ? lastTip : Math.max(f[15][0] * dir, f[16][0] * dir); if (okQ) lastTip = v; return v; }));
@@ -410,7 +411,9 @@
     for (let i = ti - 1, last = ti; i >= 0 && T[last] - T[i] <= gapMax; i--) if (tipX[i] >= topPx - tol) { bi = i; last = i; }
     for (let i = ti + 1, last = ti; i < n && T[i] - T[last] <= gapMax; i++) if (tipX[i] >= topPx - tol) { bj = i; last = i; }
     const heldSec = T[bj] - T[bi], held = heldSec >= cfg.holdSec - 0.15, win = []; for (let i = bi; i <= bj; i++) win.push(i);
-    const sole = median(win.map(i => P[i][L.HEEL[sd]][0] * dir)), toCm = (x) => (x - sole) / ppc + cfg.tipOffsetCm, reach = tipX.map(toCm), best = toCm(topPx), peak = Math.max(...reach);
+    // 테이프 기준: 테이프의 발 쪽 끝이 0cm(발판 면), 테이프 길이가 자. 손끝을 직접 찍었으면 그 자리를 그대로 쓴다.
+    const heelX = median(win.map(i => P[i][L.HEEL[sd]][0] * dir)), sole = tape ? (Math.abs(tape.x0 * dir - heelX) <= Math.abs(tape.x1 * dir - heelX) ? tape.x0 : tape.x1) * dir : heelX;
+    const hand = tape && isFinite(o.tipX), tipOff = tape ? cfg.tipTapeCm : cfg.tipOffsetCm, toCm = (x) => (x - sole) / ppc + tipOff, reach = tipX.map(toCm), best = hand ? (o.tipX * dir - sole) / ppc : toCm(topPx), peak = Math.max(...reach);
     const kneeMin = quant(win.map(i => ang(J(i, 'HIP'), J(i, 'KNEE'), J(i, 'ANK'))), 0.1), hipAngle = median(win.map(i => ang(J(i, 'SH'), J(i, 'HIP'), J(i, 'KNEE'))));
     const sway = quant(win.map(i => reach[i]), 0.9) - quant(win.map(i => reach[i]), 0.1), fouls = [];
     if (kneeMin < cfg.kneeMin) fouls.push({ code: 'knee', sev: 'bad', label: '무릎 굽힘', detail: `측정 중 무릎 각도가 ${round(kneeMin)}°까지 굽었습니다. (기준 ${cfg.kneeMin}° 이상)` });
@@ -421,7 +424,7 @@
     if (kneeMin < cfg.kneeMin) tips.push({ p: '무릎이 굽으면 무효입니다.', fix: '허벅지 앞쪽에 힘을 줘 무릎을 바닥으로 누른 채 숙이세요.', ex: ['앉아서 무릎 누르고 발끝 당기기 3×20초', '종아리 스트레칭 3×30초'] });
     if (!held) tips.push({ p: '끝까지 민 자리에서 오래 버티지 못합니다.', fix: '끝 지점에서 2초를 세고 손을 뗍니다. 튕기지 말고 천천히 미는 연습을 하세요.', ex: ['PNF 스트레칭(6초 버티고 더 숙이기) ×4'] });
     return { ok: true, event: 'flex', record: { value: round(best), unit: 'cm', valid: !fouls.some(f => f.sev === 'bad') }, fouls, metrics, tips,
-      notes: ['발바닥이 닿는 면을 0cm로 보고 손끝이 넘어간 거리입니다. 손이 1초 이상 머문 가장 먼 자리를 기록으로 봅니다.', '손끝 위치는 앱이 추정하는 것이라 ±3cm 정도 틀릴 수 있습니다.', `앱이 손가락 마디까지만 찾기 때문에 손끝까지 ${cfg.tipOffsetCm}cm를 더했습니다. 설정에서 바꿀 수 있습니다.`],
+      notes: tape ? [`빨간 테이프(${tape.cm}cm)를 자로 썼고, 테이프의 발 쪽 끝을 0cm로 봤습니다.`, hand ? '손끝은 직접 찍은 자리를 썼습니다.' : `손끝은 앱이 추정했습니다(손가락 마디 + ${cfg.tipTapeCm}cm). 끝까지 민 장면에서 ③ 손끝을 직접 찍으면 더 정확합니다.`] : ['발바닥이 닿는 면을 0cm로 보고 손끝이 넘어간 거리입니다. 손이 1초 이상 머문 가장 먼 자리를 기록으로 봅니다.', '손끝 위치는 앱이 추정하는 것이라 ±3cm 정도 틀릴 수 있습니다.', `앱이 손가락 마디까지만 찾기 때문에 손끝까지 ${cfg.tipOffsetCm}cm를 더했습니다. 설정에서 바꿀 수 있습니다.`],
       events: [{ t: T[bi], label: '유지 시작' }, { t: T[bj], label: '유지 끝' }], anchor: T[bi] };
   }
 
