@@ -470,7 +470,7 @@
   function analyzeRun(frames, o) {
     o = o || {}; const id = o.dist === 20 ? 'run20' : 'run10', cfg = mk(id, o), D = (o.dist || 10) * 100;
     const F = frames.filter(f => f && f.p);
-    if (F.length < 10) return err('사람이 인식된 구간이 너무 짧습니다. 출발선 주변에서 전신이 나오게 찍어 주세요.');
+    if (F.length < 10) return err('영상에서 사람을 거의 찾지 못했습니다. 폰을 가로로 눕혀 머리부터 발끝까지 나오게 찍고, 사람이 너무 작게 찍히지 않도록 달리는 줄에서 5~8m 거리에서 찍어 주세요. 어둡거나 역광이어도 잘 못 찾습니다.');
     if (!isFinite(o.lineX)) { // 간편 측정: 출발 자세의 앞발 끝을 출발선으로 본다
       if (!o.auto) return err('출발선 위치를 먼저 찍어 주세요.');
       const hx0 = F.map(f => (f.p[23][0] + f.p[24][0]) / 2), b0 = median(hx0.slice(0, 5)), H0 = bodyH({ p: F.map(f => f.p) }), mv = hx0.findIndex(x => Math.abs(x - b0) > 0.3 * H0);
