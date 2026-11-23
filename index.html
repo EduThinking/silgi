@@ -291,16 +291,16 @@ const FIGS = {
     <rect x="54" y="128" width="32" height="20" rx="5" fill="#3D5BFF"/><text x="92" y="142">카메라 (출발선을 옆으로 늘인 자리)</text><text x="6" y="166">반대편 선까지 화면에 다 들어오면 턴도 분석합니다.</text></svg>`
 };
 const EVENTS = [
-  { id: 'jump', ico: '🤾', name: '제자리멀리뛰기', what: '거리, 출발선·착지 파울, 반동과 팔 스윙', on: true, fps: 30, fn: 'analyzeJump', dec: 1,
+  { id: 'jump', ico: '🤾', name: '제자리멀리뛰기', what: '거리, 출발선·착지 파울, 앉는 깊이와 팔 스윙', on: true, fps: 30, fn: 'analyzeJump', dec: 1,
     fig: 'jump', guide: ['폰을 가로로 눕혀 삼각대나 의자에 고정합니다. 높이는 허리쯤(약 1m)입니다.', '뛰는 방향의 정확히 옆에서 찍습니다. 출발선에서 뛰는 쪽으로 1.5m 간 지점의 옆, 4~5m 떨어진 자리가 좋습니다.', '광각(0.5배)은 화면이 휘어 거리가 틀어집니다. 기본 1배로 찍습니다.', '출발선부터 착지 지점 너머까지 한 화면에 담습니다. 발이 잘리면 거리를 못 잽니다.', '출발선과, 출발선에서 2m 되는 자리에 테이프를 뛰는 방향과 직각으로 30cm 이상 붙입니다. 두 테이프의 양 끝이 화면에 보여야 "테이프 4점"으로 정확히 잽니다.', '준비 자세부터 착지한 뒤 <b>똑바로 일어설 때까지</b> 찍습니다. 기록은 일어섰을 때 뒤꿈치 자리로 잽니다. 일어설 때 머리까지 화면에 들어오게 하세요.', '60fps면 더 정확합니다.'] },
   { id: 'situp', ico: '💪', name: '윗몸일으키기', what: '기준 충족한 횟수만 카운트, 무효 사유, 페이스', on: true, fps: 15, fn: 'analyzeSitup', dec: 0,
     guide: ['폰을 가로로 눕혀 몸 옆 3m쯤, 바닥에서 30~50cm 높이에 고정합니다.', '머리부터 발끝까지 화면에 담습니다.', '발을 잡아 주는 사람이 무릎과 엉덩이를 가리지 않게 합니다.', '시작 전 누운 자세부터 끝날 때까지 끊지 않고 찍습니다.'] },
   { id: 'run10', ico: '🏃', name: '10m 왕복달리기', what: '출발선 통과~복귀 시간, 스타트, 턴', on: true, fps: 30, fn: 'analyzeRun', dist: 10, dec: 2, lower: true, fig: 'run', guide: RUN_GUIDE },
   { id: 'run20', ico: '⚡', name: '20m 왕복달리기', what: '구간 시간, 스타트, 턴', on: true, fps: 30, fn: 'analyzeRun', dist: 20, dec: 2, lower: true, fig: 'run', guide: RUN_GUIDE },
   { id: 'shuttle', ico: '🔁', name: '셔틀런', what: '신호음, 레벨·횟수, 탈락 판정', on: true, custom: true, dec: 0, guide: [] },
-  { id: 'flex', ico: '🧘', name: '유연성 (좌전굴)', what: '도달 거리, 무릎 굽힘·반동', on: true, fps: 30, fn: 'analyzeFlex', dec: 1,
+  { id: 'flex', ico: '🧘', name: '유연성 (좌전굴)', what: '도달 거리, 무릎 굽힘·튕김', on: true, fps: 30, fn: 'analyzeFlex', dec: 1,
     guide: ['폰을 가로로 눕혀 몸 옆 2~3m, 바닥에서 30cm쯤 높이에 고정합니다.', '엉덩이부터 발끝, 뻗은 손끝까지 화면에 담습니다.', '끝까지 숙인 자세에서 2초 이상 멈춥니다.', '무릎이 가려지지 않게 합니다.'] },
-  { id: 'sargent', ico: '🚀', name: '서전트 점프', what: '점프 높이, 반동, 팔 스윙', on: true, fps: 30, fn: 'analyzeSargent', dec: 1,
+  { id: 'sargent', ico: '🚀', name: '서전트 점프', what: '점프 높이, 앉는 깊이, 팔 스윙', on: true, fps: 30, fn: 'analyzeSargent', dec: 1,
     guide: ['폰을 세로로 세워 몸 옆 3~4m 거리, 허리 높이에 고정합니다.', '머리 위 여유를 넉넉히 두고 발끝까지 담습니다.', '바로 선 자세로 1초 서 있다가 뜁니다. 서 있는 높이가 기준입니다.', '착지 후 1초까지 찍습니다.'] }
 ];
 const store = {
@@ -679,7 +679,7 @@ function renderSetup() {
       ${tape ? pickUI(pl, ['출발선 가까운 끝', '출발선 먼 끝', '거리선 가까운 끝', '거리선 먼 끝'], TAPE_HELP(c)) + `<div class="set">${numField('markCm', '출발선에서 거리선까지 실제 거리', 'markCm', 10, 'cm')}${numField('shoeCm', '신발 보정 (관절 점과 신발 끝 차이)', 'shoeCm', 0.5, 'cm')}</div><p class="small muted">테이프 두 줄이 화면에서 위쪽으로 모이는 각도를 써서, 카메라에서 가깝게 섰든 멀게 섰든 같은 기준으로 잽니다. 기록은 출발 발끝부터 착지 후 똑바로 섰을 때 뒤꿈치까지입니다.</p>` : ''}
       ${lines ? LINES_UI(pl) + `<div class="set">${numField('heightCm', '신발 신은 키', 'heightCm', 1, 'cm')}</div>` : ''}
       ${lines || tape ? '' : line ? pickUI(pl, ['출발선', c.markCm + 'cm 표시'], ['<b>① 출발선</b>: 선에서 <b>뛰는 쪽 가장자리</b>가 바닥에 닿는 곳을 찍습니다. 두 발끝이 화면에서 어긋나 보이면 <b>카메라에 가까운 쪽 발끝</b>에 맞추세요. 어긋난 만큼은 자동으로 보정합니다. 자리가 맞으면 위의 ②를 누르세요.', '<b>② 거리 표시</b>: 출발선에서 뛰는 방향으로 잰 테이프 끝이 바닥에 닿는 곳을 찍습니다. 수험생이 뛰는 줄 위에 있어야 거리가 정확합니다.']) + `<div class="set">${numField('markCm', '①에서 ②까지 실제 거리', 'markCm', 10, 'cm')}</div>`
-        : `<div class="set">${numField('heightCm', '수험생 키', 'heightCm', 1, 'cm')}</div><p class="small muted">몸 길이로 화면 축척을 어림합니다. 오차가 5% 안팎이고 출발선 밟기는 판정하지 못합니다.</p>`}
+        : `<div class="set">${numField('heightCm', '수험생 키', 'heightCm', 1, 'cm')}</div><p class="small muted">몸 길이를 기준으로 거리를 어림합니다. 오차가 5% 안팎이고 출발선 밟기는 판정하지 못합니다.</p>`}
       <div class="set">${numField('lineTolCm', '출발선 허용 오차', 'lineTolCm', 1, 'cm')}
         <label for="fps">추적 정밀도<select id="fps" data-k="fps"><option value="30">초당 30장 (기본)</option><option value="60">초당 60장 (60fps 영상)</option></select></label></div></div>`;
     host.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { pl.pts = []; pl.act = 0; c.calibMode = b.dataset.mode; saveCfg(); if (pl === live) livePreset(); if (needPts()[1]) pl.startPick(2); else { pl.picking = 0; pl.draw(); } renderSetup(); recompute(); if (pl === live) { $('#liveFrame').classList.toggle('pick', !!live.picking); liveHint(); } });
@@ -719,11 +719,11 @@ function renderSetup() {
 }
 
 /* ── 결과 화면 ── */
-const PHASES = { jump: [['① 반동 자세 (무릎을 굽혀 뛰려는 순간)', ['knee', 'armBack'], 'knee', '충분히 앉았는지, 팔을 뒤로 보냈는지 봅니다.'],
-    ['② 도약 자세 (몸을 펴고 발끝이 떨어지기 직전)', ['ext', 'hipExt', 'armTO', 'angle', 'speed'], 'ext', '발목·무릎·엉덩이가 다 펴졌는지, 팔이 앞·위로 올라왔는지 봅니다.'],
+const PHASES = { jump: [['① 앉는 자세 (무릎을 굽혀 뛰려는 순간)', ['knee', 'armBack'], 'knee', '충분히 앉았는지, 팔을 뒤로 보냈는지 봅니다.'],
+    ['② 뛰는 자세 (몸을 펴고 발끝이 떨어지기 직전)', ['ext', 'hipExt', 'armTO', 'angle', 'speed'], 'ext', '발목·무릎·엉덩이가 다 펴졌는지, 팔이 앞·위로 올라왔는지 봅니다.'],
     ['③ 공중 자세 (무릎 당기기)', ['tuckT', 'tuck', 'heelKick', 'ankle'], 'tuck', '무릎을 빨리, 충분히 당겼는지와 발이 뒤로 차올려지지 않았는지 봅니다.'],
     ['④ 착지 자세', ['legOut', 'tdKnee', 'tdHip', 'reach', 'landKnee'], 'tdKnee', '다리를 너무 일찍 뻗지 않았는지, 닿는 순간 무릎을 펴고 몸을 접었는지 봅니다.']],
-  sargent: [['도약 자세', ['knee', 'armTO', 'ext'], 'armTO'], ['공중 자세', ['flightH', 'flight'], null], ['착지', ['drift', 'landKnee'], 'landKnee']] };
+  sargent: [['뛰는 자세', ['knee', 'armTO', 'ext'], 'armTO'], ['공중 자세', ['flightH', 'flight'], null], ['착지', ['drift', 'landKnee'], 'landKnee']] };
 const EXD = { // 운동 이름(앞부분) → 방법 | 주의
   '플라잉 10m 달리기': '10m를 달려 속도를 올린 뒤 이어지는 10m를 전력으로 달립니다. 뒤 10m만 최고 속도로 달리는 연습이고, 한 번 달릴 때마다 2분 쉽니다.|힘이 빠진 채 달리면 느린 동작이 몸에 익습니다. 충분히 쉬고 달립니다.',
   '40m 왕복 반복 달리기': '실제 시험과 같은 10m 왕복 2회(40m)를 전력으로 달리고 1분 쉰 뒤 다시 달립니다. 뒤 회차에서도 첫 회차 기록의 5% 안쪽을 지키는 것이 목표입니다.|기록이 크게 떨어지면 그날은 거기서 끝냅니다.',
@@ -747,7 +747,7 @@ const EXD = { // 운동 이름(앞부분) → 방법 | 주의
   '루마니안 데드리프트': '무릎을 살짝 굽힌 채 엉덩이를 뒤로 빼며 바벨을 정강이 중간까지 내렸다가 엉덩이를 앞으로 밀며 일어납니다.|등이 둥글어지면 안 됩니다. 바벨은 다리에 붙여 내립니다.',
   '낮은 허들': '출발선 1m 앞에 30cm 허들을 놓고 그 위를 넘어 멀리뛰기를 합니다. 위로 뜨는 감각을 익힙니다.|허들을 의식해 다리만 들지 말고 몸 전체가 떠야 합니다.',
   '박스 점프': '무릎 높이 박스 위로 뛰어올라 조용히 착지합니다. 내려올 때는 걸어 내려옵니다.|박스 위에서 깊이 주저앉아야 올라가진다면 박스가 높은 것입니다.',
-  '전경 자세 낙하 드릴': '발을 모으고 서서 몸을 일직선으로 앞으로 기울이다가 넘어지기 직전에 뜁니다. 무게중심이 발끝을 넘어가는 순간을 익힙니다.|허리만 숙이지 않고 발목부터 기울입니다.',
+  '전경 자세 낙하 드릴': '발을 모으고 서서 몸을 일직선으로 앞으로 기울이다가 넘어지기 직전에 뜁니다. 몸이 발끝보다 앞으로 넘어가는 순간을 익힙니다.|허리만 숙이지 않고 발목부터 기울입니다.',
   '행잉 니 레이즈': '철봉에 매달려 무릎을 가슴까지 당겨 올렸다가 천천히 내립니다.|몸을 흔들어 반동을 쓰지 않습니다.',
   '행잉 레그 레이즈': '철봉에 매달려 다리를 편 채 골반 높이까지 올렸다가 천천히 내립니다. 어려우면 무릎을 굽힙니다.|반동을 쓰지 않습니다.',
   '턱 점프': '제자리에서 뛰어 무릎을 가슴까지 당겼다가 펴며 착지합니다. 연속으로 합니다.|상체를 숙여 무릎에 맞추지 말고 무릎을 올립니다.',
@@ -830,34 +830,34 @@ function renderResults() {
     const sl = r.lossSlow, last = r.sections.length;
     h += `<div class="card"><h2>구간별 속도</h2><p class="small muted">출발선에서 반대편까지 한 번을 한 구간으로 봅니다. 구간마다 앞·가운데·뒤로 3등분한 속도(m/s)입니다. 구간을 누르면 그 장면으로 이동합니다.</p>
       ${r.sections.map(x => `<div class="tip" data-t="${x.t0}" style="cursor:pointer"><div class="row between"><h3>${x.n}구간 · ${x.out ? '가는 길' : '돌아오는 길'}</h3><span class="pill ${sl && sl.n === x.n ? 'warn' : 'info'}">${x.sec}초 · 평균 ${x.mps}m/s</span></div>${x.ph ? `<div style="display:flex;gap:8px;align-items:flex-end;height:96px">${bar(x.ph[0], x.n === 1 ? '출발 가속' : '턴 후 가속')}${bar(x.ph[1], '가운데')}${bar(x.ph[2], x.n === last ? '도착' : '턴 진입')}</div>` : ''}</div>`).join('')}
-      ${sl ? `<p><b>${sl.n}구간이 가장 느렸습니다.</b> 평균 ${sl.mps}m/s로, 가장 빨랐던 ${sl.best}구간(${sl.bestMps}m/s)보다 ${Math.round((1 - sl.mps / sl.bestMps) * 100)}% 느립니다. ${sl.late ? '뒤로 갈수록 속도가 떨어진 것이라 짧은 거리를 반복해 달리는 힘이 필요합니다.' : '초반에 속도를 올리는 힘이 필요합니다.'}</p><p><b>보강운동</b> (누르면 방법이 나옵니다)</p><div>${(sl.late ? ['40m 왕복 반복 달리기(휴식 1분) 5회', '150m 템포 달리기 4회'] : ['푸시업 스타트 5회', '슬레드·밴드 저항 달리기 5×10m']).map(exHtml).join('')}</div>` : ''}
-      ${r.loss && r.loss.length ? `<h3>시간을 많이 잃은 곳</h3><p class="small muted">가장 빨랐던 순간 속도(${r.vmax}m/s)로 계속 달렸을 때와 비교해 잃은 시간입니다. 가속·감속 구간은 누구나 시간을 잃지만, 숫자가 큰 곳부터 줄이는 것이 기록에 가장 빨리 반영됩니다.</p>${r.loss.slice(0, 3).map((x, i) => `<div class="tip"><div class="row between"><h3>${i + 1}. ${esc(x.label)}</h3><span class="pill warn">약 ${x.sec}초</span></div><p><b>이렇게 고치세요.</b> ${esc(x.fix)}</p><p><b>보강운동</b> (누르면 방법이 나옵니다)</p><div>${x.ex.map(exHtml).join('')}</div></div>`).join('')}` : ''}
-      <p class="small muted">속도는 엉덩이 위치의 움직임으로 계산했습니다. 키로 축척을 잡은 경우 절대값은 어림이지만 구간끼리의 비교는 믿을 만합니다.</p></div>`;
+      ${sl ? `<p><b>${sl.n}구간이 가장 느렸습니다.</b> 평균 ${sl.mps}m/s로, 가장 빨랐던 ${sl.best}구간(${sl.bestMps}m/s)보다 ${Math.round((1 - sl.mps / sl.bestMps) * 100)}% 느립니다. ${sl.late ? '뒤로 갈수록 지쳐서 느려진 것이라, 짧은 거리를 여러 번 전력으로 달리는 연습이 필요합니다.' : '처음에 빠르게 치고 나가는 힘이 필요합니다.'}</p><p><b>보강운동</b> (누르면 방법이 나옵니다)</p><div>${(sl.late ? ['40m 왕복 반복 달리기(휴식 1분) 5회', '150m 템포 달리기 4회'] : ['푸시업 스타트 5회', '슬레드·밴드 저항 달리기 5×10m']).map(exHtml).join('')}</div>` : ''}
+      ${r.loss && r.loss.length ? `<h3>시간을 많이 잃은 곳</h3><p class="small muted">내가 가장 빨랐던 순간의 속도(${r.vmax}m/s)로 계속 달렸다면 줄일 수 있었던 시간입니다. 출발하거나 턴하는 곳에서는 누구나 시간이 더 걸리지만, 숫자가 큰 곳부터 고치면 기록이 가장 빨리 좋아집니다.</p>${r.loss.slice(0, 3).map((x, i) => `<div class="tip"><div class="row between"><h3>${i + 1}. ${esc(x.label)}</h3><span class="pill warn">약 ${x.sec}초</span></div><p><b>이렇게 고치세요.</b> ${esc(x.fix)}</p><p><b>보강운동</b> (누르면 방법이 나옵니다)</p><div>${x.ex.map(exHtml).join('')}</div></div>`).join('')}` : ''}
+      <p class="small muted">속도는 엉덩이가 움직인 거리로 계산했습니다. 키를 기준으로 잰 경우 속도 숫자 자체는 어림값이지만, 구간끼리 비교하는 데는 문제없습니다.</p></div>`;
   }
   const PHS = PHASES[r.event]; let phHtml = '';
   if (PHS) phHtml = PHS.map(([name, keys, shot, desc]) => { const ms = keys.map(k => r.metrics.find(m => m.key === k)).filter(Boolean), bad = ms.filter(m => m.verdict === 'low' || m.verdict === 'high').length;
     return `<div class="tip"><div class="row between"><h3>${name}</h3><span class="pill ${bad ? 'warn' : 'good'}">${bad ? '고칠 점 ' + bad + '가지' : '좋아요'}</span></div>${desc ? `<p class="small muted">${desc}</p>` : ''}${shot && ms.some(m => m.key === shot && m.at != null) ? `<div class="shot" data-shot="${shot}"></div>` : ''}
-      <div>${ms.map(m => `<div class="chg"><b>${esc(m.label.replace(/ \(.*/, ''))}</b><span class="n">${m.value}${m.unit}</span><span class="${m.verdict === 'good' ? '' : 'muted'}" style="${m.verdict === 'low' || m.verdict === 'high' ? 'color:var(--warn);font-weight:700' : ''}">${m.verdict === 'info' ? '참고' : m.verdict === 'good' ? '좋음' : m.verdict === 'low' ? '부족' : '과함'}</span></div>`).join('')}</div></div>`; }).join('');
-  h += `<div class="card"><div class="row between"><h2>${PHS ? '자세 분석' : '자세 지표'}</h2><div class="legend"><span><i style="background:var(--ink)"></i>나</span>${M ? '<span><i style="background:var(--accent)"></i>기준 모델</span>' : ''}<span><i style="background:#9FE0BC;width:14px"></i>권장 범위</span></div></div>${phHtml}${PHS ? '<details><summary>지표 전체와 권장 범위 보기</summary>' : ''}<div>
+      <div>${ms.map(m => `<div class="chg"><b>${esc(m.label.replace(/ \(.*/, ''))}</b><span class="n">${m.value}${m.unit}</span><span class="${m.verdict === 'good' ? '' : 'muted'}" style="${m.verdict === 'low' || m.verdict === 'high' ? 'color:var(--warn);font-weight:700' : ''}">${m.verdict === 'info' ? '참고' : m.verdict === 'good' ? '좋음' : m.verdict === 'low' ? '모자람' : '지나침'}</span></div>`).join('')}</div></div>`; }).join('');
+  h += `<div class="card"><div class="row between"><h2>${PHS ? '자세 분석' : '자세 수치'}</h2><div class="legend"><span><i style="background:var(--ink)"></i>나</span>${M ? '<span><i style="background:var(--accent)"></i>기준 모델</span>' : ''}<span><i style="background:#9FE0BC;width:14px"></i>권장 범위</span></div></div>${phHtml}${PHS ? '<details><summary>측정한 수치 전부 보기</summary>' : ''}<div>
     ${r.metrics.map(m => `<div class="metric"><div><b>${esc(m.label)}</b></div><div class="val">${m.value}<span> ${m.unit}</span></div>
       ${m.at != null && !PHS ? `<div class="shot" data-shot="${m.key}"></div>` : ''}<div class="sub"><span class="pill ${m.verdict === 'good' ? 'good' : m.verdict === 'info' ? 'info' : 'warn'}">${VTXT[m.verdict]}</span>${gauge(m, rmap[m.key])}${m.ref ? `<span>권장 ${m.ref[0]}~${m.ref[1]}${m.unit}</span>` : ''}${rmap[m.key] != null ? `<span>기준 모델 ${rmap[m.key]}${m.unit}</span>` : ''}</div></div>`).join('')}
-    </div>${PHS ? '</details>' : ''}<p class="small muted">권장 범위는 일반적인 지도 기준입니다. 체형과 영상 각도에 따라 5~10° 차이가 날 수 있으니 같은 조건으로 찍은 내 기록끼리 비교하는 것이 가장 믿을 만합니다.</p></div>`;
+    </div>${PHS ? '</details>' : ''}<p class="small muted">권장 범위는 보통 이 정도면 좋다고 보는 기준입니다. 체형이나 찍은 각도에 따라 5~10° 정도 다르게 나올 수 있으니, 같은 자리에서 같은 방법으로 찍은 내 기록끼리 비교하는 것이 가장 정확합니다.</p></div>`;
   const mOf = (k) => r.metrics.find(m => m.key === k), sev = (m) => !m || !m.ref || m.verdict === 'good' || m.verdict === 'info' ? 0 : (m.verdict === 'low' ? m.ref[0] - m.value : m.value - m.ref[1]) / ((m.ref[1] - m.ref[0]) || 1);
   const tips = r.tips.slice().sort((a, b) => sev(mOf(b.key)) - sev(mOf(a.key))), goods = r.metrics.filter(m => m.verdict === 'good').slice(0, 3).map(m => m.label.replace(/ \(.*/, ''));
   const cmp = (m) => { if (!m || !m.ref || m.verdict === 'good') return ''; const d = Math.round((m.verdict === 'low' ? m.ref[0] - m.value : m.value - m.ref[1]) * 10) / 10; return `<p class="cmp"><b>나 ${m.value}${m.unit}</b> · 잘하는 사람 ${m.ref[0]}~${m.ref[1]}${m.unit}${rmap[m.key] != null ? ` · 기준 모델 ${rmap[m.key]}${m.unit}` : ''} → <b>${d}${m.unit} ${m.verdict === 'low' ? '모자랍니다' : '넘칩니다'}</b></p>`; };
-  h += `<div class="card"><h2>잘하는 사람과 비교해 고칠 점</h2>${goods.length ? `<p class="small"><b>잘하고 있는 점</b> ${goods.map(esc).join(', ')}</p>` : ''}${tips.length ? `<p class="small muted">차이가 큰 것부터 적었습니다. 위에서부터 하나씩 고치세요.</p>` + tips.map((t, i) => `<div class="tip"><h3>${i + 1}. ${esc(t.p)}</h3>${cmp(mOf(t.key))}<p><b>이렇게 고치세요.</b> ${esc(t.fix)}</p>${t.ex.length ? `<p><b>보강운동</b> (누르면 방법이 나옵니다)</p><div>${t.ex.map(exHtml).join('')}</div>` : ''}</div>`).join('') : '<p>지표가 모두 잘하는 사람 범위 안입니다. 지금 자세를 유지하면서 근력과 순발력을 키우면 기록이 따라옵니다.</p>'}
-    <p class="small muted">"잘하는 사람" 범위는 운동역학 연구와 지도 현장에서 쓰는 일반 기준입니다. 실제 상위권 수험생의 측정을 기준 모델로 저장하면 그 사람 수치와 관절선으로 직접 비교합니다.${(Analysis.BASIS[app.ev.dist ? 'run' : app.ev.id] || []).length ? '<br>참고한 연구: ' + Analysis.BASIS[app.ev.dist ? 'run' : app.ev.id].map(b => `<a href="${b[1]}" target="_blank" rel="noopener">${esc(b[0])}</a>`).join(' · ') : ''}</p></div>`;
+  h += `<div class="card"><h2>잘하는 사람과 비교해 고칠 점</h2>${goods.length ? `<p class="small"><b>잘하고 있는 점</b> ${goods.map(esc).join(', ')}</p>` : ''}${tips.length ? `<p class="small muted">차이가 큰 것부터 적었습니다. 위에서부터 하나씩 고치세요.</p>` + tips.map((t, i) => `<div class="tip"><h3>${i + 1}. ${esc(t.p)}</h3>${cmp(mOf(t.key))}<p><b>이렇게 고치세요.</b> ${esc(t.fix)}</p>${t.ex.length ? `<p><b>보강운동</b> (누르면 방법이 나옵니다)</p><div>${t.ex.map(exHtml).join('')}</div>` : ''}</div>`).join('') : '<p>모든 수치가 잘하는 사람 범위 안에 있습니다. 지금 자세를 유지하면서 힘과 순발력을 키우면 기록이 따라옵니다.</p>'}
+    <p class="small muted">"잘하는 사람" 범위는 운동 연구와 지도자들이 쓰는 일반적인 기준입니다. 주변에서 잘하는 친구를 측정해 기준 모델로 저장하면 그 친구의 수치·관절선과 바로 비교할 수 있습니다.${(Analysis.BASIS[app.ev.dist ? 'run' : app.ev.id] || []).length ? '<br>참고한 연구: ' + Analysis.BASIS[app.ev.dist ? 'run' : app.ev.id].map(b => `<a href="${b[1]}" target="_blank" rel="noopener">${esc(b[0])}</a>`).join(' · ') : ''}</p></div>`;
   if (M && r.anchor != null && r.event !== 'situp' && !app.ev.dist) h += `<div class="card"><div class="row between"><h2>모션그래픽으로 비교</h2><span class="pill">${M.builtin ? '표준 동작' : esc(M.name)}</span></div>
-    <p class="small muted">위가 내 동작, 아래가 ${M.builtin ? '잘 뛰는 표준 동작' : '기준 모델'}입니다. 도약 순간과 출발 위치를 맞춰 같은 크기로 그렸습니다. 고칠 점이 나오는 순간에는 그 관절이 주황색으로 바뀝니다.</p>
+    <p class="small muted">위가 내 동작, 아래가 ${M.builtin ? '잘 뛰는 표준 동작' : '기준 모델'}입니다. 발이 땅에서 떨어지는 순간과 출발 위치를 맞춰 같은 크기로 그렸습니다. 고칠 점이 나오는 순간에는 그 관절이 주황색으로 바뀝니다.</p>
     <div class="mgbox"><span class="mgl">나</span><canvas id="mgA" width="900" height="420"></canvas></div><div class="mgbox"><span class="mgl">${M.builtin ? '표준 동작' : '기준 모델'}</span><canvas id="mgB" width="900" height="420"></canvas></div>
     <p class="small" id="mgCap" style="min-height:1.4em;color:var(--warn);font-weight:700"></p>
     <div class="row"><button id="mgPlay" class="primary">재생</button><select id="mgRate" aria-label="재생 속도"><option value="0.25">0.25배속</option><option value="0.5" selected>0.5배속</option><option value="1">1배속</option></select>${(r.events || []).map(e => `<button data-mgt="${e.t}">${esc(e.label)}</button>`).join('')}</div>
-    ${M.builtin ? '<p class="small muted">표준 동작은 운동역학 연구의 권장 각도(반동 무릎 약 90°, 도약 각도 약 30°, 공중에서 무릎 당기기, 착지 때 다리 앞으로 뻗기)로 만든 움직임입니다. 유튜브 영상 속 선수의 동작을 그대로 옮긴 것은 아닙니다.</p>' : ''}</div>`;
+    ${M.builtin ? '<p class="small muted">표준 동작은 운동 연구에서 좋다고 하는 자세(앉을 때 무릎 약 90°, 뛰어오르는 각도 약 30°, 공중에서 무릎 당기기, 착지 때 다리 앞으로 뻗기)로 만든 움직임입니다. 유튜브 영상 속 선수의 동작을 그대로 옮긴 것은 아닙니다.</p>' : ''}</div>`;
   h += `<div class="card"><h2>관절선 겹쳐 보기</h2>
     <p class="small">${M && M.builtin ? '지금은 <b>표준 동작</b>과 비교합니다. 연구에 나온 권장 각도로 만든 관절 움직임이고 실제 사람의 영상은 아닙니다. 잘하는 사람을 이 화면에서 똑같이 측정한 뒤 "기준 모델로 저장"을 누르면 그 사람 동작으로 바뀝니다.' : M ? `기준 모델: <b>${esc(M.name)}</b> ${fv(M.value)}${M.unit}` : '아직 기준 모델이 없습니다. 잘하는 사람을 이 화면에서 똑같이 측정한 뒤 아래 "기준 모델로 저장"을 누르면 됩니다.'}</p>
     <label class="row small" for="ghOn" style="${M ? '' : 'display:none'}"><input type="checkbox" id="ghOn" ${app.ghostOn && M ? 'checked' : ''}> 내 영상에 기준 모델 관절선 겹치기 (하늘색이 기준 모델, 흰색이 나)</label>
     <div class="seg ${M && app.ghostOn ? '' : 'hidden'}" role="group" aria-label="겹치는 방식"><button data-gm="pose" aria-pressed="${(app.ghostMode || 'pose') === 'pose'}">자세 비교 (엉덩이를 맞춤)</button><button data-gm="move" aria-pressed="${app.ghostMode === 'move'}">움직임 비교 (출발 자리를 맞춤)</button></div>
-    <p class="small muted ${M && app.ghostOn ? '' : 'hidden'}">키 차이는 자동으로 맞추고, 핵심 순간(도약·출발 등)을 기준으로 시간을 맞춥니다. 0.25배속이나 1프레임씩 넘기며 보세요.</p>
+    <p class="small muted ${M && app.ghostOn ? '' : 'hidden'}">키 차이는 자동으로 맞추고, 중요한 순간(발이 떨어질 때·출발할 때 등)을 기준으로 시간을 맞춥니다. 0.25배속이나 1프레임씩 넘기며 보세요.</p>
     <div class="row"><button id="mdSave">이 측정을 기준 모델로 저장</button><button id="mdDel" class="ghost ${models()[app.ev.id] ? '' : 'hidden'}">기준 모델 지우기</button><span class="small muted" id="mdMsg"></span></div>
     <div class="${app.ev.dist ? 'hidden' : ''}" style="display:flex;flex-direction:column;gap:10px"><h3>비교 영상을 바로 넣기</h3>
     <div class="row"><button id="btnRef">비교 영상 선택</button><input type="file" id="fRef" accept="video/*" class="hidden">${!isS ? `<label class="small muted" for="refH">비교 대상 키 <input type="number" id="refH" value="${cfgOf(app.ev.id).refHeightCm}"> cm</label>` : ''}<span class="small muted" id="refMsg"></span></div>
