@@ -316,7 +316,7 @@ const LINES_UI = (pl) => pickUI(pl, ['머리끝', '발바닥'], ['<b>① 머리�
 const TAPE_HELP = (c) => ['<b>① 출발선 가까운 끝</b>: 출발선 테이프에서 <b>발끝이 놓이는 쪽 가장자리</b>의, 카메라에 가까운 끝을 찍습니다.', '<b>② 출발선 먼 끝</b>: 같은 가장자리의 카메라에서 먼 끝을 찍습니다. ①과 ②를 이은 선이 테이프 가장자리와 겹쳐야 합니다.', `<b>③ 거리선 가까운 끝</b>: ${c.markCm}cm 테이프에서 <b>${c.markCm}cm가 끝나는 쪽 가장자리</b>의 카메라에 가까운 끝을 찍습니다.`, '<b>④ 거리선 먼 끝</b>: 같은 가장자리의 먼 끝을 찍습니다. 테이프가 길수록(30cm 이상) 정확합니다.'];
 const saveCfg = () => store.set('pe.cfg', app.cfg);
 if (store.get('pe.cfgv', 0) < 2) { if (app.cfg.jump) app.cfg.jump.calibMode = 'height'; store.set('pe.cfgv', 2); saveCfg(); }
-if (store.get('pe.cfgv', 0) < 3) { if (app.cfg.flex && app.cfg.flex.tipOffsetCm === 6) app.cfg.flex.tipOffsetCm = 9; store.set('pe.cfgv', 3); saveCfg(); } // 손끝 보정 기본값 6 → 9cm
+if (store.get('pe.cfgv', 0) < 4) { if (app.cfg.flex) { if ([6, 9].includes(app.cfg.flex.tipOffsetCm)) app.cfg.flex.tipOffsetCm = 5; if (app.cfg.flex.kneeMin === 165) app.cfg.flex.kneeMin = 160; } store.set('pe.cfgv', 4); saveCfg(); } // 실제 측정값(18cm)과 맞춰 본 뒤 손끝 보정 5cm, 무릎 기준 160°
 
 /* ── 포즈 엔진 ── */
 const engine = {
@@ -709,8 +709,10 @@ function renderSetup() {
       <div class="set">${numField('heightCm', '수험생 키', 'heightCm', 1, 'cm')}
         ${run ? numField('laps', '왕복 횟수', 'laps', 1, '회') + `<label for="startMode">시간 시작 기준<select id="startMode" data-k="startMode"><option value="line">출발선을 넘는 순간</option><option value="move">첫 움직임</option></select></label>` : ''}
         ${f ? numField('holdSec', '유지 시간', 'holdSec', 0.5, '초') + numField('kneeMin', '무릎 굽힘 기준', 'kneeMin', 1, '° 이상') + numField('tipOffsetCm', '손끝 보정', 'tipOffsetCm', 1, 'cm') : ''}
+        ${f ? `<div class="field" style="flex-basis:100%"><label for="flexReal">측정대에 찍힌 실제 기록을 알면 (앱 기록을 여기에 맞춥니다)</label><div class="row"><input type="number" step="0.1" id="flexReal" placeholder="예: 18" style="width:110px"> cm <button id="flexFit">이 값에 맞추기</button></div><span class="small muted" id="flexFitMsg">한 번 맞춰 두면 같은 사람·같은 측정대에서는 다음 측정에도 그대로 적용됩니다.</span></div>` : ''}
         <label for="fps">추적 정밀도<select id="fps" data-k="fps"><option value="30">초당 30장 (기본)</option><option value="60">초당 60장 (60fps 영상)</option></select></label></div>
       ${run ? '<p class="small muted">왕복 횟수는 대학마다 다릅니다. 요강에 맞춰 바꾸세요.</p>' : ''}</div>`;
+    if (f && $('#flexFit')) $('#flexFit').onclick = () => { const v = parseFloat($('#flexReal').value), r = pl.result, m = $('#flexFitMsg'); if (!isFinite(v)) { m.textContent = '실제 기록을 숫자로 적어 주세요.'; return; } if (!r || !r.ok) { m.textContent = '먼저 영상을 분석한 뒤에 눌러 주세요.'; return; } c.tipOffsetCm = Math.round((c.tipOffsetCm + v - r.record.value) * 10) / 10; saveCfg(); renderSetup(); recompute(); const mm = $('#flexFitMsg'); if (mm) mm.textContent = `손끝 보정을 ${c.tipOffsetCm}cm로 맞췄습니다. 다음 측정부터도 이 값으로 계산합니다.`; };
     if (run || sg) { bindPick(pl, host); host.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { pl.pts = []; pl.act = 0; c.calibMode = b.dataset.mode; saveCfg(); if (pl === live) livePreset(); if (needPts()[1]) pl.startPick(2); else { pl.picking = 0; pl.draw(); } renderSetup(); recompute(); if (pl === live) { $('#liveFrame').classList.toggle('pick', !!live.picking); liveHint(); } }); }
   }
   host.querySelectorAll('[data-k]').forEach(i => {
