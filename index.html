@@ -582,7 +582,7 @@ function compute(pl, isRef) {
 async function run() {
   const pl = app.me, c = cfgOf(app.ev.id), errEl = $('#runErr'), prog = $('#prog');
   errEl.classList.add('hidden');
-  if (pl.pts.length < needPts()[0]) { errEl.textContent = c.calibMode === 'tape4' ? '출발선과 거리선 테이프의 가까운 끝·먼 끝 네 곳을 먼저 찍어 주세요.' : c.calibMode === 'lines' ? '서 있는 장면에서 머리끝과 발바닥 높이를 먼저 찍어 주세요.' : app.ev.dist ? '영상 위에서 출발선 위치를 먼저 찍어 주세요.' : '영상 위에서 출발선과 기준점 두 곳을 먼저 찍어 주세요. 표시가 없으면 "키로 어림"을 고르세요.'; errEl.classList.remove('hidden'); return; }
+  if (pl.pts.length < needPts()[0]) { errEl.textContent = c.calibMode === 'tape' && app.ev.id === 'flex' ? '빨간 테이프의 양 끝을 먼저 찍어 주세요. "빨간 테이프 자동으로 찾기"를 눌러도 됩니다.' : c.calibMode === 'tape4' ? '출발선과 거리선 테이프의 가까운 끝·먼 끝 네 곳을 먼저 찍어 주세요.' : c.calibMode === 'lines' ? '서 있는 장면에서 머리끝과 발바닥 높이를 먼저 찍어 주세요.' : app.ev.dist ? '영상 위에서 출발선 위치를 먼저 찍어 주세요.' : '영상 위에서 출발선과 기준점 두 곳을 먼저 찍어 주세요. 표시가 없으면 "키로 어림"을 고르세요.'; errEl.classList.remove('hidden'); return; }
   $('#btnRun').disabled = true; prog.classList.remove('hidden'); prog.value = 0;
   try {
     await extract(pl, c.fps || app.ev.fps, (v) => { prog.value = v; $('#runHint').textContent = '관절 추적 중 ' + Math.round(v * 100) + '%'; });
